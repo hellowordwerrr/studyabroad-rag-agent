@@ -14,7 +14,7 @@ update_rankings.py — 一键刷新院校排名数据（数据管道雏形）
 用法示例：
   .\\.venv\\Scripts\\python.exe update_rankings.py --auto --dry-run
   .\\.venv\\Scripts\\python.exe update_rankings.py --auto
-  .\\.venv\\Scripts\\python.exe update_rankings.py --file "D:\\QS2027导出表.xlsx"
+  .\\.venv\\Scripts\\python.exe update_rankings.py --file "<你的表格文件>"
 
 流程：读取新数据 → 按校名/别名模糊匹配现有学校 → 更新 qs_rank
       → 写回 data/rankings.json → 更新 data/meta.json（版本/时间/来源）
