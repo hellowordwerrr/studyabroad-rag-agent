@@ -1,0 +1,11 @@
+langroid==0.67.7
+fastembed==0.8.0
+python-docx==1.2.0
+# 必须固定 1.11.x：langroid 0.67.7 使用 CollectionInfo.vectors_count 等旧 API，
+# qdrant-client 1.12+ 移除后会导致集合创建报错
+qdrant-client==1.11.3
+# update_rankings.py 读取 QS 排名表（xlsx）
+openpyxl==3.1.5
+# Web 界面（Chainlit 2.x；版本上界受 langroid 0.67.7 [chainlit] extra 约束）
+chainlit>=2.0.1,<3.0
+python-socketio>=5.11.0,<6.0.0

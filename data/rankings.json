@@ -1,0 +1,183 @@
+[
+  {
+    "name": "Massachusetts Institute of Technology",
+    "zh_name": "麻省理工学院",
+    "aliases": [
+      "MIT",
+      "麻省理工"
+    ],
+    "country": "美国",
+    "city": "剑桥（马萨诸塞州）",
+    "qs_rank": 1,
+    "note": "工程与计算机科学世界顶尖"
+  },
+  {
+    "name": "Imperial College London",
+    "zh_name": "帝国理工学院",
+    "aliases": [
+      "Imperial",
+      "帝国理工",
+      "IC"
+    ],
+    "country": "英国",
+    "city": "伦敦",
+    "qs_rank": 2,
+    "note": "理工医商科强校，伦敦核心区"
+  },
+  {
+    "name": "University of Oxford",
+    "zh_name": "牛津大学",
+    "aliases": [
+      "Oxford",
+      "牛津"
+    ],
+    "country": "英国",
+    "city": "牛津",
+    "qs_rank": 4,
+    "note": "英语世界最古老的大学"
+  },
+  {
+    "name": "Harvard University",
+    "zh_name": "哈佛大学",
+    "aliases": [
+      "Harvard",
+      "哈佛"
+    ],
+    "country": "美国",
+    "city": "剑桥（马萨诸塞州）",
+    "qs_rank": 5,
+    "note": "文理医商法全面顶尖"
+  },
+  {
+    "name": "University of Cambridge",
+    "zh_name": "剑桥大学",
+    "aliases": [
+      "Cambridge",
+      "剑桥"
+    ],
+    "country": "英国",
+    "city": "剑桥",
+    "qs_rank": 6,
+    "note": "学院制大学，数理与人文底蕴深厚"
+  },
+  {
+    "name": "Stanford University",
+    "zh_name": "斯坦福大学",
+    "aliases": [
+      "Stanford",
+      "斯坦福"
+    ],
+    "country": "美国",
+    "city": "斯坦福（加利福尼亚州）",
+    "qs_rank": 3,
+    "note": "硅谷腹地，创业氛围浓厚"
+  },
+  {
+    "name": "ETH Zurich",
+    "zh_name": "苏黎世联邦理工学院",
+    "aliases": [
+      "苏黎世联邦理工",
+      "ETH"
+    ],
+    "country": "瑞士",
+    "city": "苏黎世",
+    "qs_rank": 7,
+    "note": "欧陆理工第一，爱因斯坦母校"
+  },
+  {
+    "name": "National University of Singapore",
+    "zh_name": "新加坡国立大学",
+    "aliases": [
+      "NUS",
+      "新加坡国立"
+    ],
+    "country": "新加坡",
+    "city": "新加坡",
+    "qs_rank": 8,
+    "note": "亚洲顶尖综合性大学"
+  },
+  {
+    "name": "University College London",
+    "zh_name": "伦敦大学学院",
+    "aliases": [
+      "UCL",
+      "伦敦大学学院"
+    ],
+    "country": "英国",
+    "city": "伦敦",
+    "qs_rank": 9,
+    "note": "学科覆盖广，伦敦市中心"
+  },
+  {
+    "name": "Peking University",
+    "zh_name": "北京大学",
+    "aliases": [
+      "北大",
+      "PKU"
+    ],
+    "country": "中国",
+    "city": "北京",
+    "qs_rank": 14,
+    "note": "中国顶尖综合性大学"
+  },
+  {
+    "name": "Nanyang Technological University",
+    "zh_name": "南洋理工大学",
+    "aliases": [
+      "NTU",
+      "南洋理工"
+    ],
+    "country": "新加坡",
+    "city": "新加坡",
+    "qs_rank": 12,
+    "note": "工程与材料科学见长"
+  },
+  {
+    "name": "University of Hong Kong",
+    "zh_name": "香港大学",
+    "aliases": [
+      "HKU",
+      "港大"
+    ],
+    "country": "中国香港",
+    "city": "香港",
+    "qs_rank": 11,
+    "note": "香港历史最悠久的大学"
+  },
+  {
+    "name": "Tsinghua University",
+    "zh_name": "清华大学",
+    "aliases": [
+      "清华",
+      "THU"
+    ],
+    "country": "中国",
+    "city": "北京",
+    "qs_rank": 17,
+    "note": "中国工程与计算机强校"
+  },
+  {
+    "name": "New York University",
+    "zh_name": "纽约大学",
+    "aliases": [
+      "NYU",
+      "纽大"
+    ],
+    "country": "美国",
+    "city": "纽约",
+    "qs_rank": 55,
+    "note": "应用数学与金融工程强校"
+  },
+  {
+    "name": "London School of Economics and Political Science",
+    "zh_name": "伦敦政治经济学院",
+    "aliases": [
+      "LSE",
+      "伦敦政经"
+    ],
+    "country": "英国",
+    "city": "伦敦",
+    "qs_rank": 56,
+    "note": "社科商科世界顶尖"
+  }
+]

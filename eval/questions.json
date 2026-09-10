@@ -1,0 +1,57 @@
+{
+  "meta": {
+    "说明": "评测集：46 题（18 ranking + 16 doc + 7 mixed + 5 negative）。ranking 题的期望值由 eval.py 运行时从 data/rankings.json 自动生成（school 字段解析），避免手抄排名出错。answer 判定用 norm() 归一化（去空白/逗号/星号/下划线，转小写）后做子串匹配。",
+    "refusal_keywords": ["没有", "未找到", "查不到", "无法", "抱歉", "未收录", "不确定", "未明确", "未提及", "不提供"]
+  },
+  "questions": [
+    {"id": "rank-01", "type": "ranking", "question": "麻省理工学院的 QS 排名是多少？", "school": "麻省理工学院", "expect": "rank", "expected_tool": "ranking_lookup"},
+    {"id": "rank-02", "type": "ranking", "question": "帝国理工 QS 排名第几？", "school": "帝国理工学院", "expect": "rank", "expected_tool": "ranking_lookup"},
+    {"id": "rank-03", "type": "ranking", "question": "斯坦福大学世界排名是多少？", "school": "斯坦福大学", "expect": "rank", "expected_tool": "ranking_lookup"},
+    {"id": "rank-04", "type": "ranking", "question": "牛津大学排第几名？", "school": "牛津大学", "expect": "rank", "expected_tool": "ranking_lookup"},
+    {"id": "rank-05", "type": "ranking", "question": "哈佛大学在 QS 世界大学排名中排第几？", "school": "哈佛大学", "expect": "rank", "expected_tool": "ranking_lookup"},
+    {"id": "rank-06", "type": "ranking", "question": "Cambridge 的 QS 排名是多少？", "school": "剑桥大学", "expect": "rank", "expected_tool": "ranking_lookup"},
+    {"id": "rank-07", "type": "ranking", "question": "ETH 的 QS 排名是多少？", "school": "苏黎世联邦理工学院", "expect": "rank", "expected_tool": "ranking_lookup"},
+    {"id": "rank-08", "type": "ranking", "question": "NUS 的 QS 排名是多少？", "school": "新加坡国立大学", "expect": "rank", "expected_tool": "ranking_lookup"},
+    {"id": "rank-09", "type": "ranking", "question": "UCL 排名多少？", "school": "伦敦大学学院", "expect": "rank", "expected_tool": "ranking_lookup"},
+    {"id": "rank-10", "type": "ranking", "question": "港大的 QS 排名是多少？", "school": "香港大学", "expect": "rank", "expected_tool": "ranking_lookup"},
+    {"id": "rank-11", "type": "ranking", "question": "NTU 的世界排名是多少？", "school": "南洋理工大学", "expect": "rank", "expected_tool": "ranking_lookup"},
+    {"id": "rank-12", "type": "ranking", "question": "北京大学 QS 排名第几？", "school": "北京大学", "expect": "rank", "expected_tool": "ranking_lookup"},
+    {"id": "rank-13", "type": "ranking", "question": "清华大学的世界大学排名是多少？", "school": "清华大学", "expect": "rank", "expected_tool": "ranking_lookup"},
+    {"id": "rank-14", "type": "ranking", "question": "纽约大学的 QS 排名是多少？", "school": "纽约大学", "expect": "rank", "expected_tool": "ranking_lookup"},
+    {"id": "rank-15", "type": "ranking", "question": "LSE 的 QS 排名是多少？", "school": "伦敦政治经济学院", "expect": "rank", "expected_tool": "ranking_lookup"},
+    {"id": "rank-16", "type": "ranking", "question": "麻省理工学院位于哪个城市？", "school": "麻省理工学院", "expect": "city", "expected_tool": "ranking_lookup"},
+    {"id": "rank-17", "type": "ranking", "question": "帝国理工学院在哪个国家？", "school": "帝国理工学院", "expect": "country", "expected_tool": "ranking_lookup"},
+    {"id": "rank-18", "type": "ranking", "question": "香港大学位于哪个城市？", "school": "香港大学", "expect": "city", "expected_tool": "ranking_lookup"},
+
+    {"id": "doc-01", "type": "doc", "question": "LSE 的雅思要求是多少？", "expected_keywords": ["7.0"], "evidence_keywords": ["7.0"], "expected_tool": "doc_qa"},
+    {"id": "doc-02", "type": "doc", "question": "LSE 的托福成绩要求是多少？", "expected_keywords": ["总分100"], "evidence_keywords": ["总分 100"], "expected_tool": "doc_qa"},
+    {"id": "doc-03", "type": "doc", "question": "LSE MSc Finance 的申请截止日期是什么时候？", "expected_keywords": ["11月15日"], "evidence_keywords": ["11 月 15 日"], "expected_tool": "doc_qa"},
+    {"id": "doc-04", "type": "doc", "question": "LSE 的学费是多少？", "expected_keywords": ["44928"], "evidence_keywords": ["44,928"], "expected_tool": "doc_qa"},
+    {"id": "doc-05", "type": "doc", "question": "NYU 的申请截止日期是什么时候？", "expected_keywords": ["12月1日"], "evidence_keywords": ["12 月 1 日"], "expected_tool": "doc_qa"},
+    {"id": "doc-06", "type": "doc", "question": "NYU 的学费是多少？", "expected_keywords": ["2200美元"], "evidence_keywords": ["2,200 美元"], "expected_tool": "doc_qa"},
+    {"id": "doc-07", "type": "doc", "question": "申请 LSE 需要几封推荐信？", "expected_keywords": ["两封"], "evidence_keywords": ["两封学术推荐信"], "expected_tool": "doc_qa"},
+    {"id": "doc-08", "type": "doc", "question": "申请 NYU 需要几封推荐信？", "expected_keywords": [["三封", "3封"]], "evidence_keywords": ["三封推荐信"], "expected_tool": "doc_qa", "note": "回答可能写汉字或阿拉伯数字，any-of 等价"},
+    {"id": "doc-09", "type": "doc", "question": "LSE 的个人陈述字数要求是多少？", "expected_keywords": [["1000字", "两页", "A4"]], "evidence_keywords": ["1000 字"], "expected_tool": "doc_qa", "note": "知识库双事实（sample 1000 字 vs 官网 A4 两页），任一命中即对"},
+    {"id": "doc-10", "type": "doc", "question": "什么情况下可以免除 LSE 的英语语言测试？", "expected_keywords": ["加拿大", "学位"], "evidence_keywords": ["Canada"], "expected_tool": "doc_qa"},
+    {"id": "doc-11", "type": "doc", "question": "LSE 要求的英语测试成绩有效期是多久？", "expected_keywords": ["两年", "2026年10月1日"], "evidence_keywords": ["two years"], "expected_tool": "doc_qa"},
+    {"id": "doc-12", "type": "doc", "question": "LSE 的申请一般要等多久出结果？", "expected_keywords": ["8周"], "evidence_keywords": ["8 weeks"], "expected_tool": "doc_qa"},
+    {"id": "doc-13", "type": "doc", "question": "非英国本科申请 LSE 的成绩要求是多少？", "expected_keywords": ["70%", "3.5"], "evidence_keywords": ["70 per cent"], "expected_tool": "doc_qa"},
+    {"id": "doc-14", "type": "doc", "question": "LSE MSc Finance 的必修课有哪些？", "expected_keywords": ["FM422", "FM423"], "evidence_keywords": ["FM422"], "expected_tool": "doc_qa"},
+    {"id": "doc-15", "type": "doc", "question": "LSE MSc Finance 项目时长是多久？", "expected_keywords": ["10个月"], "evidence_keywords": ["10 month"], "expected_tool": "doc_qa"},
+    {"id": "doc-16", "type": "doc", "question": "LSE 为 PhD 学生提供哪些奖学金？", "expected_keywords": ["ESRC", "CSC"], "evidence_keywords": ["ESRC"], "expected_tool": "doc_qa"},
+
+    {"id": "mix-01", "type": "mixed", "question": "NYU 的 QS 排名和申请截止日期分别是什么？", "expected_keywords": ["55", "12月1日"], "evidence_keywords": ["12 月 1 日"], "expected_tool": "both"},
+    {"id": "mix-02", "type": "mixed", "question": "LSE 的 QS 排名是多少？雅思要求呢？", "expected_keywords": ["56", "7.0"], "evidence_keywords": ["7.0"], "expected_tool": "both"},
+    {"id": "mix-03", "type": "mixed", "question": "LSE 的学费和雅思要求分别是多少？", "expected_keywords": ["44928", "7.0"], "evidence_keywords": ["44,928"], "expected_tool": "doc_qa"},
+    {"id": "mix-04", "type": "mixed", "question": "帝国理工学院的 QS 排名和所在城市分别是什么？", "expected_keywords": [["第2名", "第2位", "排名第2"], "伦敦"], "expected_tool": "ranking_lookup"},
+    {"id": "mix-05", "type": "mixed", "question": "哈佛大学的 QS 排名是多少？它在哪个城市？", "expected_keywords": [["第5名", "第5位", "排名第5"], "剑桥"], "expected_tool": "ranking_lookup"},
+    {"id": "mix-06", "type": "mixed", "question": "牛津大学的 QS 排名是多少？它在哪个国家？", "expected_keywords": [["第4名", "第4位", "排名第4"], "英国"], "expected_tool": "ranking_lookup"},
+    {"id": "mix-07", "type": "mixed", "question": "清华大学的 QS 排名和所在城市分别是什么？", "expected_keywords": [["第17名", "第17位", "排名第17"], "北京"], "expected_tool": "ranking_lookup"},
+
+    {"id": "neg-01", "type": "negative", "question": "哈佛大学的学费是多少？", "forbidden_keywords": ["美元", "$", "£", "英镑"], "expected_tool": "doc_qa"},
+    {"id": "neg-02", "type": "negative", "question": "剑桥大学的雅思要求是多少？", "forbidden_keywords": ["7.0", "6.5", "总分100"], "expected_tool": "doc_qa"},
+    {"id": "neg-03", "type": "negative", "question": "耶鲁大学的 QS 排名是多少？", "forbidden_keywords": ["排名第"], "expected_tool": "ranking_lookup"},
+    {"id": "neg-04", "type": "negative", "question": "斯坦福大学的学费是多少？", "forbidden_keywords": ["美元", "$", "£", "英镑"], "expected_tool": "doc_qa"},
+    {"id": "neg-05", "type": "negative", "question": "LSE 的 GRE 分数要求是多少？", "forbidden_keywords": ["320", "325", "330"], "expected_tool": "doc_qa"}
+  ]
+}

@@ -1,0 +1,27 @@
+# 密钥与本地环境（绝不入库）
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# 向量库与运行产物
+.qdrant/
+
+# 调试脚本与评测报告（tmp/ 内是排查用临时脚本）
+# 注意：不能写 tmp/（目录整体被忽略后无法用 ! 白名单），必须写 tmp/*
+tmp/*
+# 白名单：README 引用的回归/单测脚本
+!tmp/test_ui_client.py
+!tmp/test_memory_ui.py
+!tmp/test_memory_ui2.py
+!tmp/test_memory_ui3.py
+!tmp/test_dsml_parse.py
+
+# 框架自动生成
+chainlit.md
+.chainlit/
+
+# 运行时日志（langroid/chainlit 自动生成，含调用记录）
+logs/

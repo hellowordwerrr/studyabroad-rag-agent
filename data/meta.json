@@ -1,0 +1,7 @@
+{
+  "data_name": "QS 世界大学排名",
+  "edition": "QS 2026",
+  "updated_at": "2026-09-08",
+  "source": "update_rankings.py 自动更新",
+  "school_count": 15
+}
