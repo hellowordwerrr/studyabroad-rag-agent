@@ -45,7 +45,7 @@ load_dotenv(dotenv_path=Path(__file__).parent / ".env")
 
 MODEL = os.getenv("WEB_MODEL", "deepseek/deepseek-chat")
 EMBED_MODEL = os.getenv("WEB_EMBED_MODEL", DEFAULT_EMBED_MODEL)
-# 默认隐藏工具调用的 JSON Step（界面更简洁）；面试演示想看工具调用过程时，
+# 默认隐藏工具调用的 JSON Step（界面更简洁）；想看工具调用过程时，
 # 设置环境变量 WEB_SHOW_TOOL_STEPS=1 再启动即可
 SHOW_TOOL_STEPS = os.getenv("WEB_SHOW_TOOL_STEPS", "") == "1"
 DOCS_DIR = Path(__file__).parent / "docs"
@@ -274,7 +274,7 @@ async def on_chat_start():
     # 注入 Chainlit 回调（流式 LLM Step / 工具 Step / 错误 Step 渲染）。
     # 建库在注入之前完成，不会把 ingest 渲染成 Step；回调只绑主 Agent。
     # 默认用 QuietAgentCallbacks（隐藏工具 JSON Step）；WEB_SHOW_TOOL_STEPS=1
-    # 时恢复官方默认行为（面试演示工具调用过程用）。
+    # 时恢复官方默认行为（演示工具调用过程用）。
     if SHOW_TOOL_STEPS:
         lr.ChainlitAgentCallbacks(agent)
     else:

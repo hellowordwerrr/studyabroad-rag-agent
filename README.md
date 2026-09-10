@@ -47,7 +47,7 @@ DocChatAgent 直接挂工具」的简单方案：DocChatAgent 的 `llm_response`
 
    ```powershell
    .\run.ps1 docs                 # 用示例文档测试
-   .\run.ps1 "D:\留学资料"          # 你自己的 PDF/TXT/DOCX 文件或文件夹
+   .\run.ps1 "<你的文档目录>"        # 你自己的 PDF/TXT/DOCX 文件或文件夹
    .\run.ps1 docs -m deepseek/deepseek-reasoner   # 换 R1 推理模型
    ```
 
@@ -78,7 +78,7 @@ Step / 工具调用与结果 Step），还支持在对话框直接上传 PDF/TXT
   客户端，多标签页/刷新时会触发文件锁冲突，故全会话共享一份，doc_qa 调用
   由锁串行化）；定位单用户本地使用。重建知识库删除 `.qdrant` 目录即可
 
-实现踩坑（面试可讲）：交互式 Task 不适合 Web——`interactive=True` 在工具
+实现踩坑：交互式 Task 不适合 Web——`interactive=True` 在工具
 执行后会向用户索要输入，`interactive=False` 在最终回答后无结束信号会 stall。
 解决方案：手动 ReAct 循环（`llm_response` → `try_get_tool_messages` →
 `agent_response`）+ `cl.make_async` 把整段同步循环放入线程池，配合官方
@@ -115,7 +115,7 @@ chainlit 启动时 `nest_asyncio.apply()` 把 `asyncio.run` 补丁成了「要�
   线性膨胀；改造后**恒定 2 条**，且第 6 轮指代题（「那这所大学的所在
   城市是哪里？」）仍能正确解析上一轮的学校。
 
-设计取舍（面试可讲）：不依赖框架隐式历史（无界、不可审计），改为
+设计取舍：不依赖框架隐式历史（无界、不可审计），改为
 应用层显式窗口——token 有界、窗口大小可调、喂给 LLM 的记忆内容可审计；
 超出窗口的最旧轮自然遗忘（滑动窗口）。
 
@@ -151,7 +151,7 @@ LLM 靠猜回答的编造风险。
 4. **`ingest_doc_paths` 不去重**：重复启动会重复入库污染检索 → `chat.py` 里加了
    `.qdrant/ingested.txt` 标记守卫；想强制重建知识库时删除 `.qdrant` 目录。
 5. **LLM 转述可能引入事实错误**：工具结果本身正确，但 LLM 复述时偶发改动数字
-   （实测 NYU 截止日期被改写过一次）。面试可讲：工具结果直接落库/结构化输出，
+   （实测 NYU 截止日期被改写过一次）。对策：工具结果直接落库/结构化输出，
    减少 LLM 二次转述。
 6. **DeepSeek 偶发输出原生 DSML 工具调用格式**：实测约 1/5 轮不按 OpenAI
    tool_calls 协议输出，而是把原生 DSML（`<｜invoke name="...">`，注意分隔符
@@ -161,7 +161,7 @@ LLM 靠猜回答的编造风险。
    `get_tool_messages`（框架唯一工具提取入口），框架解析不到工具时回退解析
    DSML，按 invoke 的 name 在 `llm_tools_map` 找工具类、用 parameter 参数
    实例化。所有入口（chat.py / web_ui.py / eval.py / test_tools.py）统一换用
-   该子类。面试可讲：LLM 输出格式不稳定的容错设计（协议格式 + 原生格式双路
+   该子类。这是针对 LLM 输出格式不稳定的容错设计（协议格式 + 原生格式双路
    解析）。
 
 ## 可选参数
@@ -184,7 +184,7 @@ LLM 靠猜回答的编造风险。
 .\.venv\Scripts\python.exe update_rankings.py --auto
 
 # 半自动模式：导入本地表格（QS 官网导出的 xlsx/csv 均可，自动识别列）
-.\.venv\Scripts\python.exe update_rankings.py --file "D:\QS2027.xlsx"
+.\.venv\Scripts\python.exe update_rankings.py --file "<你的表格文件>"
 ```
 
 流程：下载/导入表格 → 按校名模糊匹配（thefuzz）→ 更新排名 → 写回
@@ -213,7 +213,7 @@ LLM 靠猜回答的编造风险。
 .\.venv\Scripts\python.exe crawler.py
 ```
 
-设计要点（面试可讲）：
+设计要点：
 
 - 只抓官方 `.edu`/`.ac.uk` 页面：数据权威、可核查
 - 礼貌爬取：浏览器 UA + 单线程 + 页间 sleep 2s 限速 + 每页最多重试 2 次
@@ -237,7 +237,7 @@ BM25/模糊匹配（纯稠密检索，bge-small-zh 中英混查排序反而更�
 
 - 向量索引：`.qdrant/data`（Qdrant 本地模式，无需 Docker）
 - embedding 模型：HuggingFace 缓存目录（本机已下载，重装系统需重新下载）
-- NLTK 语料：`C:\Users\赵\nltk_data`（本机已下载 punkt/punkt_tab/wordnet/stopwords）
+- NLTK 语料：`%USERPROFILE%\nltk_data`（本机已下载 punkt/punkt_tab/wordnet/stopwords）
 
 ## 部署踩坑记录（本机已验证的解决方案）
 
@@ -245,7 +245,7 @@ BM25/模糊匹配（纯稠密检索，bge-small-zh 中英混查排序反而更�
 2. **大文件 401（Xet 协议）** → `.env` 中设置 `HF_HUB_DISABLE_XET=1`
 3. **qdrant-client 版本不兼容** → 固定 `qdrant-client==1.11.3`（langroid 0.67.7 用了 1.12+ 已移除的旧 API）
 4. **中文 TXT 报 GBK 解码错误** → 用 `run.ps1` 启动（设置 `PYTHONUTF8=1`）
-5. **NLTK 语料下载失败（raw.githubusercontent.com 被墙）** → 已手动下载到 `C:\Users\赵\nltk_data`；换机器需用 GitHub 代理（如 `https://gh-proxy.com/`）重新下载 punkt、punkt_tab、wordnet、stopwords 四个包
+5. **NLTK 语料下载失败（raw.githubusercontent.com 被墙）** → 已手动下载到 `%USERPROFILE%\nltk_data`；换机器需用 GitHub 代理（如 `https://gh-proxy.com/`）重新下载 punkt、punkt_tab、wordnet、stopwords 四个包
 
 ## 评测（eval.py）
 
@@ -262,7 +262,7 @@ BM25/模糊匹配（纯稠密检索，bge-small-zh 中英混查排序反而更�
 实测结果（2026-09-10，三轮迭代终态）：**检索命中率 19/19，工具路由
 正确率 46/46，答案正确率 46/46**。失败题明细见 `eval/report.txt`。
 
-评测驱动调优实录（三轮，面试可讲）：
+评测驱动调优实录（三轮）：
 
 - 首轮 33/46：两处根因。① DeepSeek 偶发原生 DSML 工具调用（见「工具调用
   踩坑记录」第 6 条）→ DeepSeekChatAgent 双路解析；② DocChatAgent
@@ -281,7 +281,7 @@ BM25/模糊匹配（纯稠密检索，bge-small-zh 中英混查排序反而更�
   「三封/3封」any-of（LLM 数字写法不定）；doc-09 双事实题（sample
   1000 字 vs 官网 A4 两页）any-of 组原写成 AND 结构，修正为任一命中。
 
-设计要点（面试可讲）：
+设计要点：
 
 - ranking 题期望值**运行时从 rankings.json 自动生成**（school 字段
   解析），题库只写校名与期望类型，不手抄排名数字——防评测集本身出错
@@ -303,7 +303,7 @@ BM25/模糊匹配（纯稠密检索，bge-small-zh 中英混查排序反而更�
       meta.json 时效元数据（RankingTool 回答附带「数据更新时间」）
 - [x] 数据源升级（申请要求部分）：官网定向爬虫 crawler.py，LSE 试点 5 页入库。
       调研结论：申请要求/截止日期无现成公开数据集，爬官网是正路；官网数据
-      权威可核查，且爬虫自带限速/重试/清洗/来源可溯，管道能力是简历可讲点
+      权威可核查，且爬虫自带限速/重试/清洗/来源可溯，构成了完整的数据采集能力
 - [ ] 数据源升级（排名部分）：GitHub 数据集换成 QS 官方实时数据，
       并支持自动更新 QS 2027（当前脚本的数据 URL 需随新数据集发布而更新）
 - [ ] 更多工具：申请截止倒计时规划、汇率换算、文书润色

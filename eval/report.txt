@@ -1,5 +1,5 @@
 评测时间: 2026-09-10 19:18:34
-题库: D:\study-abroad-qa\eval\questions.json（共 46 题）
+题库: eval/questions.json（共 46 题）
 
 检索命中率: 19/19
 工具路由正确率: 46/46

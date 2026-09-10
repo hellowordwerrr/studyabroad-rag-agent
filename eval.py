@@ -292,7 +292,7 @@ def main() -> int:
     total = len(questions)
     summary = [
         f"评测时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-        f"题库: {QUESTIONS_PATH}（共 {total} 题）",
+        f"题库: eval/questions.json（共 {total} 题）",
         "",
         f"检索命中率: {n_retrieval_ok}/{n_retrieval_n}",
         f"工具路由正确率: {n_route_ok}/{n_route_n}",
