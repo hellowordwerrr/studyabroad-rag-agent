@@ -81,6 +81,45 @@
 - **二轮 38/46**：剩下的 8 题全是跨语言检索 top-k 截断——中文块的相似度分整体不高（0.5-0.7），真命块常排第 6-8 位被截断；更反直觉的是「查询改写」帮倒忙：改写把中文问题翻译成英文，英文问法把英文官网页顶进合并 top-k，把中文块挤出去 → 候选块数直接取语料块数（全量召回）+ 关闭改写，检索完全确定；
 - **终态**：检索命中 19/19，工具路由 46/46，答案正确 46/46——含 5 道防编造题全部正确拒答。逐题明细见 [eval/report.txt](eval/report.txt)。
 
+## 评测体系
+
+### 评测集样本
+
+| 问题 | 所属层 | 预期行为 |
+|---|---|---|
+| 「LSE 要求的英语测试成绩有效期是多久？」 | 检索命中 | 中文问题检索英文文档，证据关键词 "two years" 命中 |
+| 「LSE 的申请一般要等多久出结果？」 | 检索命中 | 证据关键词 "8 weeks" 命中 |
+| 「Cambridge 的 QS 排名是多少？」 | 工具路由 | 调用 ranking_lookup 查本地排名数据 |
+| 「NYU 的 QS 排名和申请截止日期分别是什么？」 | 工具路由 | 同时调用 ranking_lookup + doc_qa |
+| 「LSE 的学费是多少？」 | 答案正确 | 回答包含 44928 |
+| 「哈佛大学的学费是多少？」 | 防编造 | 必须拒答，且不得出现任何货币金额 |
+
+### 三轮调优分数对比
+
+| 轮次 | 总分 | 本轮主要修改 |
+|---|---|---|
+| 第 1 轮 | 33/46 | DSML 双路解析；关闭文档流水线随机翻译/相关句批量抽取/跨题历史累积 |
+| 第 2 轮 | 38/46 | 检索改为全量召回（候选块数=语料块数）+ 关闭查询改写 |
+| 第 3 轮（2026-09-10） | 46/46 | 判题集两处修正（doc-08「三封/3封」、doc-09 双事实 any-of）后复跑至满分 |
+
+<img src="docs/eval-rounds.png" alt="评测三轮迭代总分柱状图：33/46 → 38/46 → 46/46" width="560">
+
+第 3 轮逐层明细：
+
+| 指标 | 结果 |
+|---|---|
+| 检索命中 | 19/19 |
+| 工具路由 | 46/46 |
+| 答案正确 | 46/46 |
+
+> 分数出处：第 3 轮逐层分数出自 [eval/report.txt](eval/report.txt)（2026-09-10 运行）；前两轮总分与修改记录出自 [docs/interview.md](docs/interview.md) 第 4 节。检索命中率的分母是带证据关键词的 19 道 doc/mixed 题（16 doc + 3 mixed）。
+
+### 为什么拆三层 + 防编造
+
+三层指标对应 RAG 链路的三个环节：先确认「找得到」（检索），再确认「该走哪个工具」（路由），最后确认「答得对」（答案）。拆开打分是为了让问题可定位——第一轮失分几乎全在框架流水线，第二轮全在检索截断，只看最终答案正确率的话两个根因都定位不到。
+
+防编造题（如「哈佛大学的学费」——知识库没有哈佛学费数据）判分用双重条件：必须出现拒答词（「没有/未找到」等），且不得出现任何货币金额。只查「有没有拒答」不够——模型可能一边说「没有官方数据」一边编个数字；只查「有没有金额」也不够——正常回答本来就该带金额。两个条件同时成立才是真拒答。
+
 ## ✨ 功能亮点
 
 - 🤖 **多智能体架构** —— 主 Agent 调度两个工具：`ranking_lookup`（QS 排名/城市查询）+ `doc_qa`（文档问答，回答带来源引用）
@@ -140,20 +179,7 @@ public/               # Web 主题与品牌资源（theme.css/logo）
 
 ## 🏗 架构
 
-```mermaid
-graph TD
-    U[用户提问] --> M[主 ChatAgent<br/>ReAct 工具调度]
-    M -->|ranking_lookup 工具| R[本地 QS 排名数据<br/>校名模糊匹配]
-    M -->|doc_qa 工具| D[DocChatAgent 子 Agent]
-    D --> V[向量检索<br/>Qdrant + 中文 embedding]
-    V --> A[带 [^n] 来源引用回答]
-    style U fill:#E8A5BE,color:#2B462B
-    style M fill:#2B462B,color:#E8A5BE
-    style R fill:#FDF6EC,color:#2B462B,stroke:#2B462B
-    style D fill:#FDF6EC,color:#2B462B,stroke:#2B462B
-    style V fill:#FDF6EC,color:#2B462B,stroke:#2B462B
-    style A fill:#FDF6EC,color:#2B462B,stroke:#2B462B
-```
+![系统架构图：用户提问 → 主 ChatAgent（ReAct 工具调度）→ ranking_lookup 查本地 QS 排名 / doc_qa 走 DocChatAgent 子 Agent → Qdrant 向量检索 → 带 [^n] 来源引用回答](docs/architecture.png)
 
 核心文件：[chat.py](chat.py)（CLI 入口）· [web_ui.py](web_ui.py)（Chainlit Web）· [tools.py](tools.py)（自定义工具）· [doc_qa.py](doc_qa.py)（文档问答子 Agent）· [eval.py](eval.py)（评测）· [update_rankings.py](update_rankings.py) + [crawler.py](crawler.py)（数据管道）
 
