@@ -21,7 +21,15 @@ tmp/*
 
 # 框架自动生成
 chainlit.md
-.chainlit/
+# 运行产物：元素文件（导出/上传的对话附件）
+.files/
+# 同 tmp/ 的处理：目录整体忽略后无法用 ! 白名单，必须写 .chainlit/*
+# 白名单：品牌名配置与自定义中文文案（zh-CN.json）；sessions.db 与其他语言翻译不入库
+.chainlit/*
+!.chainlit/config.toml
+!.chainlit/translations/
+.chainlit/translations/*
+!.chainlit/translations/zh-CN.json
 
 # 运行时日志（langroid/chainlit 自动生成，含调用记录）
 logs/

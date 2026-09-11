@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- 留学智库 favicon：深森林绿圆角方块 + 玫瑰粉上扬箭头 -->
+  <rect width="64" height="64" rx="15" fill="#2B462B"/>
+  <path d="M20 44 L42 20 M26 20 L42 20 L42 36" fill="none" stroke="#E8A5BE" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="49" cy="15" r="4.5" fill="#E8A5BE"/>
+</svg>

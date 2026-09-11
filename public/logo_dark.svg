@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="158" height="36" viewBox="0 0 158 36">
+  <!-- 留学智库品牌 logo（暗色）：玫瑰粉方块 + 深森林绿箭头 + 玫瑰粉字标 -->
+  <rect x="0" y="2" width="32" height="32" rx="9" fill="#E8A5BE"/>
+  <path d="M11 24 L21 12 M13.5 12 L21 12 L21 19.5" fill="none" stroke="#2B462B" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="24.5" cy="8.5" r="2.4" fill="#2B462B"/>
+  <text x="44" y="26" font-family="'Microsoft YaHei','PingFang SC','Noto Sans SC','Segoe UI',sans-serif" font-size="19" font-weight="700" fill="#E8A5BE">留学智库</text>
+</svg>

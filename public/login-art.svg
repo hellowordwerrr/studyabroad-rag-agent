@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="900" viewBox="0 0 720 900">
+  <!-- 登录页右侧艺术背景（名校校徽墙）：玫瑰粉底 + 深森林绿/奶油盾形徽章，
+       配色遵循「浅底绿字、绿底粉字」；内容居中于 60% 安全区，
+       object-cover 任意屏幕裁切都不切断文字。盾形为通用自绘图，非各校注册商标。 -->
+  <rect width="720" height="900" fill="#E8A5BE"/>
+  <rect x="28" y="28" width="664" height="844" fill="none" stroke="#FDFAE7" stroke-opacity="0.5" stroke-width="1.5"/>
+  <text x="360" y="132" font-family="'Microsoft YaHei','PingFang SC','Noto Sans SC',sans-serif" font-size="52" font-weight="700" fill="#2B462B" text-anchor="middle">留学智库</text>
+  <text x="360" y="166" font-family="'Microsoft YaHei','PingFang SC','Noto Sans SC',sans-serif" font-size="20" fill="#2B462B" fill-opacity="0.75" text-anchor="middle">世界名校申请 · 智能问答</text>
+  <g transform="translate(128.0,196)">
+    <path d="M140 12 V102 C140 122 120 138 70 150 C20 138 0 122 0 102 V12 C0 6.5 5.4 0 12 0 H128 C134.6 0 140 6.5 140 12 Z" fill="#2B462B"/>
+    <rect x="53.0" y="44" width="34" height="2.5" rx="1.25" fill="#E8A5BE" fill-opacity="0.6"/>
+    <text x="70.0" y="80" font-family="'Georgia','Times New Roman','Cambria',serif" font-size="30" font-weight="700" letter-spacing="1" fill="#E8A5BE" text-anchor="middle">LSE</text>
+  </g>
+  <g transform="translate(290.0,196)">
+    <path d="M140 12 V102 C140 122 120 138 70 150 C20 138 0 122 0 102 V12 C0 6.5 5.4 0 12 0 H128 C134.6 0 140 6.5 140 12 Z" fill="#FDFAE7" stroke="#2B462B" stroke-width="2"/>
+    <rect x="53.0" y="44" width="34" height="2.5" rx="1.25" fill="#2B462B" fill-opacity="0.6"/>
+    <text x="70.0" y="80" font-family="'Georgia','Times New Roman','Cambria',serif" font-size="20" font-weight="700" letter-spacing="1" fill="#2B462B" text-anchor="middle">OXFORD</text>
+  </g>
+  <g transform="translate(452.0,196)">
+    <path d="M140 12 V102 C140 122 120 138 70 150 C20 138 0 122 0 102 V12 C0 6.5 5.4 0 12 0 H128 C134.6 0 140 6.5 140 12 Z" fill="#2B462B"/>
+    <rect x="53.0" y="44" width="34" height="2.5" rx="1.25" fill="#E8A5BE" fill-opacity="0.6"/>
+    <text x="70.0" y="80" font-family="'Georgia','Times New Roman','Cambria',serif" font-size="20" font-weight="700" letter-spacing="1" fill="#E8A5BE" text-anchor="middle">CAMBRIDGE</text>
+  </g>
+  <g transform="translate(128.0,370)">
+    <path d="M140 12 V102 C140 122 120 138 70 150 C20 138 0 122 0 102 V12 C0 6.5 5.4 0 12 0 H128 C134.6 0 140 6.5 140 12 Z" fill="#FDFAE7" stroke="#2B462B" stroke-width="2"/>
+    <rect x="53.0" y="44" width="34" height="2.5" rx="1.25" fill="#2B462B" fill-opacity="0.6"/>
+    <text x="70.0" y="80" font-family="'Georgia','Times New Roman','Cambria',serif" font-size="30" font-weight="700" letter-spacing="1" fill="#2B462B" text-anchor="middle">UCL</text>
+  </g>
+  <g transform="translate(290.0,370)">
+    <path d="M140 12 V102 C140 122 120 138 70 150 C20 138 0 122 0 102 V12 C0 6.5 5.4 0 12 0 H128 C134.6 0 140 6.5 140 12 Z" fill="#2B462B"/>
+    <rect x="53.0" y="44" width="34" height="2.5" rx="1.25" fill="#E8A5BE" fill-opacity="0.6"/>
+    <text x="70.0" y="80" font-family="'Georgia','Times New Roman','Cambria',serif" font-size="20" font-weight="700" letter-spacing="1" fill="#E8A5BE" text-anchor="middle">HARVARD</text>
+  </g>
+  <g transform="translate(452.0,370)">
+    <path d="M140 12 V102 C140 122 120 138 70 150 C20 138 0 122 0 102 V12 C0 6.5 5.4 0 12 0 H128 C134.6 0 140 6.5 140 12 Z" fill="#FDFAE7" stroke="#2B462B" stroke-width="2"/>
+    <rect x="53.0" y="44" width="34" height="2.5" rx="1.25" fill="#2B462B" fill-opacity="0.6"/>
+    <text x="70.0" y="80" font-family="'Georgia','Times New Roman','Cambria',serif" font-size="30" font-weight="700" letter-spacing="1" fill="#2B462B" text-anchor="middle">MIT</text>
+  </g>
+  <g transform="translate(128.0,544)">
+    <path d="M140 12 V102 C140 122 120 138 70 150 C20 138 0 122 0 102 V12 C0 6.5 5.4 0 12 0 H128 C134.6 0 140 6.5 140 12 Z" fill="#2B462B"/>
+    <rect x="53.0" y="44" width="34" height="2.5" rx="1.25" fill="#E8A5BE" fill-opacity="0.6"/>
+    <text x="70.0" y="80" font-family="'Georgia','Times New Roman','Cambria',serif" font-size="20" font-weight="700" letter-spacing="1" fill="#E8A5BE" text-anchor="middle">STANFORD</text>
+  </g>
+  <g transform="translate(290.0,544)">
+    <path d="M140 12 V102 C140 122 120 138 70 150 C20 138 0 122 0 102 V12 C0 6.5 5.4 0 12 0 H128 C134.6 0 140 6.5 140 12 Z" fill="#FDFAE7" stroke="#2B462B" stroke-width="2"/>
+    <rect x="53.0" y="44" width="34" height="2.5" rx="1.25" fill="#2B462B" fill-opacity="0.6"/>
+    <text x="70.0" y="80" font-family="'Georgia','Times New Roman','Cambria',serif" font-size="20" font-weight="700" letter-spacing="1" fill="#2B462B" text-anchor="middle">COLUMBIA</text>
+  </g>
+  <g transform="translate(452.0,544)">
+    <path d="M140 12 V102 C140 122 120 138 70 150 C20 138 0 122 0 102 V12 C0 6.5 5.4 0 12 0 H128 C134.6 0 140 6.5 140 12 Z" fill="#2B462B"/>
+    <rect x="53.0" y="44" width="34" height="2.5" rx="1.25" fill="#E8A5BE" fill-opacity="0.6"/>
+    <text x="70.0" y="80" font-family="'Georgia','Times New Roman','Cambria',serif" font-size="30" font-weight="700" letter-spacing="1" fill="#E8A5BE" text-anchor="middle">NYU</text>
+  </g>
+  <g transform="translate(128.0,718)">
+    <path d="M140 12 V102 C140 122 120 138 70 150 C20 138 0 122 0 102 V12 C0 6.5 5.4 0 12 0 H128 C134.6 0 140 6.5 140 12 Z" fill="#FDFAE7" stroke="#2B462B" stroke-width="2"/>
+    <rect x="53.0" y="44" width="34" height="2.5" rx="1.25" fill="#2B462B" fill-opacity="0.6"/>
+    <text x="70.0" y="80" font-family="'Georgia','Times New Roman','Cambria',serif" font-size="30" font-weight="700" letter-spacing="1" fill="#2B462B" text-anchor="middle">YALE</text>
+  </g>
+  <g transform="translate(290.0,718)">
+    <path d="M140 12 V102 C140 122 120 138 70 150 C20 138 0 122 0 102 V12 C0 6.5 5.4 0 12 0 H128 C134.6 0 140 6.5 140 12 Z" fill="#2B462B"/>
+    <rect x="53.0" y="44" width="34" height="2.5" rx="1.25" fill="#E8A5BE" fill-opacity="0.6"/>
+    <text x="70.0" y="80" font-family="'Georgia','Times New Roman','Cambria',serif" font-size="20" font-weight="700" letter-spacing="1" fill="#E8A5BE" text-anchor="middle">PRINCETON</text>
+  </g>
+  <g transform="translate(452.0,718)">
+    <path d="M140 12 V102 C140 122 120 138 70 150 C20 138 0 122 0 102 V12 C0 6.5 5.4 0 12 0 H128 C134.6 0 140 6.5 140 12 Z" fill="#FDFAE7" stroke="#2B462B" stroke-width="2"/>
+    <rect x="53.0" y="44" width="34" height="2.5" rx="1.25" fill="#2B462B" fill-opacity="0.6"/>
+    <text x="70.0" y="80" font-family="'Georgia','Times New Roman','Cambria',serif" font-size="30" font-weight="700" letter-spacing="1" fill="#2B462B" text-anchor="middle">PENN</text>
+  </g>
+  <text x="360" y="888" font-family="'Segoe UI','Inter',sans-serif" font-size="12" letter-spacing="6" fill="#2B462B" fill-opacity="0.65" font-weight="500" text-anchor="middle">STUDY ABROAD INTELLIGENCE</text>
+</svg>

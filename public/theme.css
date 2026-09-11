@@ -1,0 +1,188 @@
+/* 留学智库主题：奶油米色纸面 + 深森林绿 × 玫瑰马卡龙粉
+   用户指定配色：全局底色奶油米色 #F0EFE9、强调色/按钮/深色卡片 深森林绿 #2B462B、
+   主色/浅色卡片 玫瑰马卡龙粉 #E8A5BE；文字：浅底用深森林绿，绿底用玫瑰粉。
+   Chainlit 2.12 前端使用 shadcn 风格 CSS 变量（:root = 亮色，.dark = 暗色），
+   本文件只覆盖颜色 token，不碰布局与字体（本地部署，沿用系统字体栈）。
+*/
+
+/* 注意：chainlit 把 custom_css 注入在主 CSS 之前，同特异性 token 会被默认值覆盖；
+   必须升特异性（:root:root / .dark.dark）才能压过后加载的默认定义。
+   token 值必须是 HSL 三元组格式（chainlit 用 hsl(var(--x)) 消费，hex 会失效）。
+   配色：奶油米色底 + 深森林绿 #2B462B（强调/按钮）+ 玫瑰马卡龙粉 #E8A5BE（主色/浅卡片）。 */
+
+:root:root {
+  --background: 51 18.9% 92.7%; /* 奶油米灰全局底色 */
+  --foreground: 120 23.9% 22.2%; /* 深森林绿（浅底文字色） */
+  --card: 52 84.6% 94.9%; /* 奶油纸卡片 */
+  --card-foreground: 120 23.9% 22.2%;
+  --popover: 52 84.6% 94.9%;
+  --popover-foreground: 120 23.9% 22.2%;
+  --primary: 120 23.9% 22.2%; /* 深森林绿（按钮/强调） */
+  --primary-foreground: 338 59.3% 77.8%; /* 玫瑰粉（绿底文字色） */
+  --secondary: 338 59.3% 77.8%; /* 玫瑰马卡龙粉（浅色卡片/次级） */
+  --secondary-foreground: 120 23.9% 22.2%; /* 深森林绿（粉底文字色） */
+  --muted: 74 21.3% 88.0%; /* 柔sage灰 */
+  --muted-foreground: 98 9.7% 38.2%; /* 辅助文字 sage 灰 */
+  --accent: 337 59.1% 91.4%; /* 浅粉 tint */
+  --accent-foreground: 120 23.9% 22.2%;
+  --destructive: 0 72.2% 50.6%;
+  --destructive-foreground: 0 0.0% 100.0%;
+  --border: 48 20.4% 80.8%; /* 暖灰描边 */
+  --input: 48 20.4% 80.8%;
+  --ring: 120 23.9% 22.2%;
+  --chart-1: 120 23.9% 22.2%;
+  --chart-2: 338 59.3% 77.8%;
+  --chart-3: 0 72.2% 50.6%;
+  --chart-4: 91 13.3% 54.3%;
+  --chart-5: 17 50.0% 57.6%;
+  --sidebar-background: 51 32.2% 88.4%;
+  --sidebar-foreground: 120 23.9% 22.2%;
+  --sidebar-primary: 120 23.9% 22.2%;
+  --sidebar-primary-foreground: 338 59.3% 77.8%;
+  --sidebar-accent: 337 59.1% 91.4%;
+  --sidebar-accent-foreground: 120 23.9% 22.2%;
+  --sidebar-border: 48 20.4% 80.8%;
+  --sidebar-ring: 120 23.9% 22.2%;
+}
+
+.dark.dark {
+  --background: 120 19.2% 10.2%; /* 深绿黑底 */
+  --foreground: 335 52.0% 90.2%; /* 浅粉前景 */
+  --card: 120 20.0% 13.7%;
+  --card-foreground: 335 52.0% 90.2%;
+  --popover: 120 20.0% 13.7%;
+  --popover-foreground: 335 52.0% 90.2%;
+  --primary: 338 59.3% 77.8%; /* 暗色下主按钮用玫瑰粉 */
+  --primary-foreground: 120 23.9% 22.2%; /* 绿字 */
+  --secondary: 120 16.0% 19.6%;
+  --secondary-foreground: 335 52.0% 90.2%;
+  --muted: 120 16.0% 19.6%;
+  --muted-foreground: 328 11.9% 68.8%;
+  --accent: 320 11.5% 20.4%;
+  --accent-foreground: 338 59.3% 77.8%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0.0% 100.0%;
+  --border: 145 14.3% 23.3%; /* 深绿描边 */
+  --input: 145 14.3% 23.3%;
+  --ring: 338 59.3% 77.8%;
+  --chart-1: 338 59.3% 77.8%;
+  --chart-2: 120 14.8% 56.3%;
+  --chart-3: 0 90.6% 70.8%;
+  --chart-4: 320 23.4% 69.8%;
+  --chart-5: 38 70.5% 69.4%;
+  --sidebar-background: 120 16.7% 11.8%;
+  --sidebar-foreground: 335 52.0% 90.2%;
+  --sidebar-primary: 338 59.3% 77.8%;
+  --sidebar-primary-foreground: 120 23.9% 22.2%;
+  --sidebar-accent: 320 11.5% 20.4%;
+  --sidebar-accent-foreground: 338 59.3% 77.8%;
+  --sidebar-border: 145 14.3% 23.3%;
+  --sidebar-ring: 338 59.3% 77.8%;
+}
+/* ===== 登录页艺术化（body 内出现密码框时生效，聊天页不受影响） ===== */
+
+/* 左栏：米灰纸面 + 右上角柔和光晕（简洁留白，无纹理） */
+body:has(input[type="password"]) div.min-h-svh {
+  background-image: radial-gradient(circle at 88% 8%, rgba(232, 165, 190, 0.14), transparent 42%);
+  background-size: 100% 100%;
+}
+
+/* 品牌 logo 强制换源：绕开浏览器对旧 /logo 响应的缓存（content 覆盖 img 显示） */
+body:has(input[type="password"]) img.logo {
+  content: url("/public/logo.svg");
+}
+html.dark body:has(input[type="password"]) img.logo {
+  content: url("/public/logo_dark.svg");
+}
+
+/* 奶油纸卡片：包住登录表单 */
+body:has(input[type="password"]) [class*="max-w-xs"] {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 16px;
+  padding: 2.25rem 2rem 2rem;
+  box-shadow: 0 24px 48px -24px rgba(17, 17, 17, 0.2);
+}
+
+/* 标题：品牌小字 + 大字 + 深森林绿短线（浅底文字 = 深森林绿） */
+body:has(input[type="password"]) form h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: hsl(var(--foreground));
+}
+body:has(input[type="password"]) form h1::before {
+  content: "留学智库 · STUDY ABROAD INTELLIGENCE";
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  color: hsl(var(--primary));
+  margin-bottom: 10px;
+}
+body:has(input[type="password"]) form h1::after {
+  content: "";
+  display: block;
+  width: 32px;
+  height: 3px;
+  border-radius: 2px;
+  background: hsl(var(--primary));
+  margin: 12px auto 0;
+}
+
+/* 表单：标签与输入框 */
+body:has(input[type="password"]) form label {
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+}
+body:has(input[type="password"]) form input {
+  background: #fffef9;
+  border-radius: 10px;
+  border-color: hsl(var(--border));
+  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.04);
+  transition: border-color 150ms, box-shadow 150ms;
+}
+body:has(input[type="password"]) form input:focus-visible {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 3px rgba(43, 70, 43, 0.16);
+}
+
+/* 登录按钮：深森林绿底 + 玫瑰粉字（常态深色保证可读；悬停微升，颜色不转浅） */
+body:has(input[type="password"]) form button[type="submit"] {
+  background: hsl(var(--primary));
+  color: #e8a5be;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  border-radius: 10px;
+  box-shadow: 0 10px 20px -10px rgba(43, 70, 43, 0.5);
+  transition: background 150ms, transform 150ms, box-shadow 150ms;
+}
+body:has(input[type="password"]) form button[type="submit"]:hover {
+  background: #3a5c3a;
+  transform: translateY(-1px);
+  box-shadow: 0 14px 26px -10px rgba(43, 70, 43, 0.55);
+}
+
+/* 密码可见性切换按钮 */
+body:has(input[type="password"]) form button[type="button"] {
+  color: hsl(var(--muted-foreground));
+  transition: color 150ms;
+}
+body:has(input[type="password"]) form button[type="button"]:hover {
+  color: hsl(var(--primary));
+}
+
+/* 暗色登录页（.dark 加在 html 上）：卡片/输入框同步暗色，不破版 */
+html.dark body:has(input[type="password"]) [class*="max-w-xs"] {
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+  box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.6);
+}
+html.dark body:has(input[type="password"]) form h1 {
+  color: hsl(var(--foreground));
+}
+html.dark body:has(input[type="password"]) form input {
+  background: hsl(var(--background));
+  border-color: hsl(var(--border));
+  box-shadow: none;
+}

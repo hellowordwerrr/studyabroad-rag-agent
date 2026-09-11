@@ -43,7 +43,7 @@ def send_payload(question: str) -> dict:
 
 async def main():
     await sio.connect(
-        "http://localhost:8000",
+        "http://localhost:8001",
         auth={
             "sessionId": str(uuid.uuid4()),
             "threadId": str(uuid.uuid4()),

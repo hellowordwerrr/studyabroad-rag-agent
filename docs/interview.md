@@ -10,8 +10,9 @@
 4. [评测体系与三轮调优实录](#4-评测体系与三轮调优实录)
 5. [跨语言检索结论](#5-跨语言检索结论)
 6. [部署与数据存放](#6-部署与数据存放)
-7. [回归测试脚本](#7-回归测试脚本)
-8. [二次开发方向](#8-二次开发方向)
+7. [会话持久化与恢复](#7-会话持久化与恢复)
+8. [回归测试脚本](#8-回归测试脚本)
+9. [二次开发方向](#9-二次开发方向)
 
 ## 1. 架构设计决策
 
@@ -75,6 +76,19 @@ DocChatAgent 的 `llm_response` 走「检索→回答」专用流程，检索不
    参数实例化。所有入口（chat.py / web_ui.py / eval.py / test_tools.py）统一
    换用该子类。这是针对 LLM 输出格式不稳定的容错设计（协议格式 + 原生格式
    双路解析）。
+7. **引用来源元数据被包装层丢弃**：Web 端「引用来源」卡片从 0 条到端到端
+   打通，根因在 langroid 0.67.7 的 `DocChatAgent.llm_response`
+   （doc_chat_agent.py:950-999）——返回的包装 ChatDocument 只复制
+   `metadata.source`（「[^n] 路径」标题行），**不复制 `source_content`**
+   （标题行 + 缩进原文摘录，运行时取默认值 'context'）；完整 source_content
+   保存在子 Agent 的 `.response`（answer_from_docs:1830 赋值，值来自
+   get_summary_answer:1121 的完整 ChatDocMetaData）。对策：
+   [tools.py](../tools.py) 的 DocChatTool.handle 从 `_doc_agent.response`
+   取完整引用，解析成 [(引用号, 文档名, 摘录)] 按调用方主 Agent 暂存
+   （取后即清防串轮），Web 层渲染卡片时只展示文件名与截断摘录，不泄漏
+   本地绝对路径。附带发现：cl.Text / element 通道在本环境静默丢失（连
+   langroid 官方 chainlit 回调挂的 cl.Text 也到不了客户端）→ 卡片降级为
+   cl.Message 纯文本，与回答共用消息通道。
 
 ## 3. 对话记忆：受控记忆窗口
 
@@ -197,7 +211,58 @@ bge-small-zh 中英混查排序反而更准），候选块数直接取语料块�
    `%USERPROFILE%\nltk_data`；换机器需用 GitHub 代理（如 `https://gh-proxy.com/`）
    重新下载 punkt、punkt_tab、wordnet、stopwords 四个包
 
-## 7. 回归测试脚本
+## 7. 会话持久化与恢复
+
+### 7.1 数据层：为什么必须显式注册 + 两个坑
+
+Chainlit 2.12 默认无本地落盘：不注册数据层时，刷新页面历史消息即丢失，
+「Past Chats」历史会话列表也不会渲染——前端渲染条件是
+`dataPersistence && requireLogin` **两者同时成立**，缺一不可。方案：
+`@cl.data_layer` 注册 `SQLAlchemyDataLayer(conninfo="sqlite+aiosqlite:///
+.chainlit/sessions.db")`（[web_ui.py](../web_ui.py)，依赖 aiosqlite）。
+
+坑 1：**数据层不负责建表**。官方要求用户自建（官方
+backend/tests/data/test_sql_alchemy.py 即如此），否则首次连接报
+no such table。web_ui.py 内置与官方测试同款的 DDL（CREATE TABLE IF NOT
+EXISTS users/threads/steps/elements/feedbacks）；SQLite 对 UUID/JSONB/
+TEXT[] 类型名宽容，metadata 等 JSON 字段由数据层自行 json.dumps 后按
+TEXT 存取。
+
+坑 2：**历史列表强依赖登录**。只开数据层不开登录，列表不渲染。因此登录
+做成可开关：`.env` 设置 `CHAINLIT_WEB_PASSWORD` 即注册
+`@cl.password_auth_callback`（密码匹配即放行，本机单用户场景），不设置则
+无登录——无 auth 模式供回归测试与截图管道使用（此时历史列表同样不显示，
+是框架行为而非 bug）。`CHAINLIT_AUTH_SECRET` 未配置时随机生成，重启后
+需重新登录（本地使用可接受）。
+
+### 7.2 on_chat_resume：恢复分支的坑与设计
+
+- **resume 不触发 on_chat_start**（chainlit socket.py:223-245）——恢复会话
+  时框架不会重建 Agent。因此 `@cl.on_chat_resume` 里必须重建主 Agent
+  （模型取恢复的 chat_settings 或默认）、重新绑定文档子 Agent 引用与回调，
+  并把 busy 状态复位；否则恢复后第一条消息就撞 agent=None。
+- **user_session 自动搬运**：`cl.user_session` 数据（含受控记忆的 memory
+  列表）断线时自动持久化到 thread metadata、resume 前自动读回
+  （socket.py:92-95）——「完整恢复」由框架搬运，代码只需防 None。历史消息
+  由前端 resume_thread 事件自动回放，无需手动重发。
+- **URL 直达历史会话**：`/?thread=<threadId>`（server.py:995）；threadId 由
+  客户端在 socket.io auth 里自定——测试脚本与截图管道据此用固定 threadId
+  驱动问答落库再截图。
+- **会话标题**：chainlit 无自动标题（默认 Untitled）。on_message 首个用户
+  消息后取问题前 20 字，经 `update_thread(name=...)` 写入。
+- **恢复路径上的指代追问实测**：断开重连后问「那这个学校的学费呢？」正确
+  解析为上一轮的 LSE（44,928 英镑）——受控记忆窗口（第 3 节）在恢复路径
+  上依然生效。
+- **回放丢消息的坑（数据层 + 前端联动，截图管道实测抓到）**：流式回答的
+  step 在 stream_start 时首次落库，chainlit 2.12 的 create_step 会过滤
+  None 字段 → createdAt 列为 NULL；回放时 get_thread 按 createdAt ASC
+  排序，SQLite 把 NULL 排最前 → 流式回答排在它的父 run 之前回放，前端
+  找不到父消息直接丢弃——表现为「恢复会话后流式生成的回答整条消失」。
+  修复：[web_ui.py](../web_ui.py) 的 TimestampedDataLayer 子类在
+  create_step 入口给缺失 createdAt 的 step 补当前时间（最终 update_step
+  的 None 值同样被过滤，不会覆盖这个初始值）。
+
+## 8. 回归测试脚本
 
 [tmp/](../tmp/) 下的脚本是排查与回归工具（各有用途，可独立运行）：
 
@@ -209,7 +274,7 @@ bge-small-zh 中英混查排序反而更准），候选块数直接取语料块�
 - [tmp/test_dsml_parse.py](../tmp/test_dsml_parse.py)：DSML 双路解析单元验证
   （对应第 2 节第 6 条）
 
-## 8. 二次开发方向
+## 9. 二次开发方向
 
 - [x] 自定义 Agent 工具：院校排名查询（RankingTool，模糊匹配 + 本地数据源）
 - [x] 多智能体雏形：主 Agent 工具调度 + 文档问答子 Agent（DocChatTool 封装）
@@ -232,3 +297,9 @@ bge-small-zh 中英混查排序反而更准），候选块数直接取语料块�
       三轮调优后终态 19/19 + 46/46 + 46/46（见第 4 节）
 - [x] DeepSeek DSML 工具调用格式兼容：DeepSeekChatAgent 子类双路解析，
       修复约 1/5 轮工具不执行的偶发故障
+- [x] Web 会话持久化：SQLAlchemy 数据层（SQLite，表自建）+ 可开关密码登录 +
+      历史会话列表 + 断线/刷新完整恢复（消息 + 对话记忆，见第 7 节）
+- [x] Web 会话功能四件套：引用来源卡片（纯文本降级，见第 2 节第 7 条）/
+      快捷问题按钮 / 模型切换（V3/R1）/ 一键导出 Markdown
+- [x] 品牌化前端：留学智库主题（登录页艺术化 + 名校校徽墙 + 全量默认文案
+      重写 + 奶油米/深森林绿/玫瑰马卡龙粉三色 token，见 public/theme.css）

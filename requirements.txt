@@ -9,3 +9,7 @@ openpyxl==3.1.5
 # Web 界面（Chainlit 2.x；版本上界受 langroid 0.67.7 [chainlit] extra 约束）
 chainlit>=2.0.1,<3.0
 python-socketio>=5.11.0,<6.0.0
+# Chainlit SQLAlchemyDataLayer 的 SQLite 异步驱动（会话持久化/历史会话列表）
+sqlalchemy>=2.0
+aiosqlite>=0.19.0
+

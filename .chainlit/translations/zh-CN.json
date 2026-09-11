@@ -1,0 +1,260 @@
+{
+    "common": {
+        "actions": {
+            "cancel": "取消",
+            "confirm": "确认",
+            "continue": "继续",
+            "goBack": "返回",
+            "reset": "重置",
+            "submit": "提交"
+        },
+        "status": {
+            "loading": "加载中...",
+            "error": {
+                "default": "发生错误",
+                "serverConnection": "无法连接到服务器"
+            }
+        }
+    },
+    "auth": {
+        "login": {
+            "title": "欢迎回来",
+            "form": {
+                "email": {
+                    "label": "用户名",
+                    "required": "请输入用户名",
+                    "placeholder": "输入用户名"
+                },
+                "password": {
+                    "label": "密码",
+                    "required": "请输入密码"
+                },
+                "actions": {
+                    "signin": "进入留学智库"
+                },
+                "alternativeText": {
+                    "or": "或"
+                }
+            },
+            "errors": {
+                "default": "登录失败，请重试",
+                "signin": "请尝试使用其他账号登录",
+                "oauthSignin": "登录失败。请重试，或使用其他登录方式。",
+                "redirectUriMismatch": "重定向URI与OAuth应用配置不匹配",
+                "oauthCallback": "请尝试使用其他账号登录",
+                "oauthCreateAccount": "请尝试使用其他账号登录",
+                "emailCreateAccount": "请尝试使用其他账号登录",
+                "callback": "请尝试使用其他账号登录",
+                "oauthAccountNotLinked": "为确认您的身份，请使用原始账号登录",
+                "emailSignin": "邮件发送失败",
+                "emailVerify": "请验证您的邮箱，新的验证邮件已发送",
+                "credentialsSignin": "用户名或密码不正确",
+                "sessionRequired": "请登录后访问"
+            }
+        },
+        "provider": {
+            "continue": "继续使用{{provider}}"
+        }
+    },
+    "chat": {
+        "input": {
+            "placeholder": "输入你的留学问题，例如：LSE 的雅思要求是多少？",
+            "actions": {
+                "send": "发送",
+                "stop": "停止生成",
+                "attachFiles": "上传文件"
+            }
+        },
+        "speech": {
+            "start": "开始录音",
+            "stop": "停止录音",
+            "connecting": "连接中"
+        },
+        "fileUpload": {
+            "dragDrop": "将文件拖放到这里上传",
+            "browse": "浏览文件",
+            "sizeLimit": "限制：",
+            "errors": {
+                "failed": "上传失败",
+                "cancelled": "已取消上传"
+            },
+            "actions": {
+                "cancelUpload": "取消上传",
+                "removeAttachment": "移除附件"
+            }
+        },
+        "favorites": {
+            "use": "使用收藏的消息",
+            "headline": "收藏的消息",
+            "remove": "移除收藏",
+            "empty": {
+                "title": "尚无保存的提示",
+                "description": "从发送提示并加星标开始，或从之前的聊天中加星标提示"
+            }
+        },
+        "commands": {
+            "button": "工具",
+            "changeTool": "更换工具",
+            "availableTools": "可用工具"
+        },
+        "messages": {
+            "status": {
+                "using": "使用中",
+                "used": "已使用"
+            },
+            "actions": {
+                "copy": {
+                    "button": "复制",
+                    "success": "已复制！"
+                }
+            },
+            "feedback": {
+                "positive": "有帮助",
+                "negative": "没帮助",
+                "edit": "编辑反馈",
+                "dialog": {
+                    "title": "添加评论",
+                    "submit": "提交反馈",
+                    "yourFeedback": "您的反馈..."
+                },
+                "status": {
+                    "updating": "更新中",
+                    "updated": "反馈已更新"
+                }
+            }
+        },
+        "history": {
+            "title": "最近输入",
+            "empty": "暂无输入记录",
+            "show": "显示历史"
+        },
+        "settings": {
+            "title": "聊天设置",
+            "customize": "在这里选择回答模型等偏好设置"
+        },
+        "watermark": ""
+    },
+    "threadHistory": {
+        "sidebar": {
+            "title": "历史会话",
+            "filters": {
+                "search": "搜索",
+                "placeholder": "搜索历史会话…"
+            },
+            "timeframes": {
+                "today": "今天",
+                "yesterday": "昨天",
+                "previous7days": "过去7天",
+                "previous30days": "过去30天"
+            },
+            "empty": "暂无历史会话",
+            "actions": {
+                "close": "关闭侧边栏",
+                "open": "打开侧边栏"
+            }
+        },
+        "thread": {
+            "untitled": "未命名会话",
+            "menu": {
+                "rename": "重命名",
+                "share": "分享",
+                "delete": "删除"
+            },
+            "actions": {
+                "share": {
+                    "title": "分享会话链接",
+                    "button": "分享",
+                    "status": {
+                        "copied": "链接已复制",
+                        "created": "分享链接已创建！",
+                        "unshared": "已取消此会话的分享"
+                    },
+                    "error": {
+                        "create": "创建分享链接失败",
+                        "unshare": "取消会话分享失败"
+                    }
+                },
+                "delete": {
+                    "title": "删除会话",
+                    "description": "删除后无法恢复，确定删除这个会话吗？",
+                    "success": "会话已删除",
+                    "inProgress": "正在删除会话…"
+                },
+                "rename": {
+                    "title": "重命名会话",
+                    "description": "为这个会话输入新名称",
+                    "form": {
+                        "name": {
+                            "label": "名称",
+                            "placeholder": "输入新名称"
+                        }
+                    },
+                    "success": "会话已重命名！",
+                    "inProgress": "正在重命名会话…"
+                }
+            }
+        }
+    },
+    "navigation": {
+        "header": {
+            "chat": "对话",
+            "readme": "项目介绍",
+            "theme": {
+                "light": "浅色主题",
+                "dark": "深色主题",
+                "system": "跟随系统"
+            }
+        },
+        "newChat": {
+            "button": "新建会话",
+            "dialog": {
+                "title": "新建会话",
+                "description": "将开启一个全新会话，当前对话已保存。确定继续吗？",
+                "tooltip": "新建会话"
+            }
+        },
+        "user": {
+            "menu": {
+                "settings": "设置",
+                "settingsKey": "S",
+                "apiKeys": "API 密钥",
+                "logout": "退出"
+            }
+        }
+    },
+    "apiKeys": {
+        "title": "所需API密钥",
+        "description": "使用此应用需要以下API密钥。这些密钥存储在您设备的本地存储中。",
+        "success": {
+            "saved": "保存成功"
+        }
+    },
+    "alerts": {
+        "info": "信息",
+        "note": "注释",
+        "tip": "提示",
+        "important": "重要",
+        "warning": "警告",
+        "caution": "注意",
+        "debug": "调试",
+        "example": "示例",
+        "success": "成功",
+        "help": "帮助",
+        "idea": "想法",
+        "pending": "待处理",
+        "security": "安全",
+        "beta": "测试",
+        "best-practice": "最佳实践"
+    },
+    "components": {
+        "MultiSelectInput": {
+            "placeholder": "请选择…"
+        },
+        "DatePickerInput": {
+            "placeholder": {
+                "single": "选择日期",
+                "range": "选择日期范围"
+            }
+        }
+    }
+}

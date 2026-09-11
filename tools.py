@@ -41,12 +41,24 @@ def _data_meta() -> dict:
 _doc_agent: Optional[DocChatAgent] = None
 # 共享子 Agent 的调用锁：Web 多会话并发触发 doc_qa 时串行化，避免内部状态竞争
 _doc_agent_lock = threading.Lock()
+# 引用来源暂存：键 = 主 Agent 实例 id（langroid 会把调用方主 Agent 注入
+# handle(agent)），值 = [(引用号, 文档名, 摘录)]。Web 层在同一会话内
+# 问答结束后读取并渲染「引用来源」卡片，不泄漏本地绝对路径。
+_last_sources: dict[int, List[tuple]] = {}
 
 
 def set_doc_agent(agent: DocChatAgent) -> None:
     """注册文档问答子 Agent（chat.py 建库后调用）。"""
     global _doc_agent
     _doc_agent = agent
+
+
+def get_last_doc_sources(agent: lr.ChatAgent) -> List[tuple]:
+    """取某主 Agent 最近一次 doc_qa 调用的引用来源，取后即清（防串轮）。
+
+    返回 [(引用号, 文档名, 摘录)]，无则空列表。CLI 入口不读。
+    """
+    return _last_sources.pop(id(agent), [])
 
 
 class RankingTool(ToolMessage):
@@ -101,6 +113,38 @@ class RankingTool(ToolMessage):
         ]
 
 
+# 引用来源行格式：^[n] 后跟文档路径（本地绝对路径），只保留文件名展示
+_CITE_RE = re.compile(r"^\[\^(\d+)\]\s+(.+)$")
+_CITE_EXCERPT_CHARS = 200  # 引用卡片里每篇文档的原文摘录截断长度
+
+
+def _parse_citations(source_content: str) -> List[tuple]:
+    """把 langroid 引用文本解析成 [(引用号, 文档名, 摘录)]。
+
+    输入形如（每篇引用 = 一行「[^n] 文档路径」+ 后续 4 空格缩进的原文摘录）：
+
+        [^4] D:\\study-abroad-qa\\docs\\crawled-lse-....txt
+            Graduate programmes at LSE are demanding ...
+
+    路径只取文件名（绝对路径是本地信息，不进界面）；摘录截断到
+    _CITE_EXCERPT_CHARS，控制卡片体积。
+    """
+    entries: List[List] = []
+    current: Optional[List] = None
+    for line in (source_content or "").splitlines():
+        m = _CITE_RE.match(line.strip())
+        if m:
+            name = Path(m.group(2).strip()).name or m.group(2).strip()
+            current = [int(m.group(1)), name, []]
+            entries.append(current)
+        elif current is not None and line.strip():
+            current[2].append(line.strip())  # 摘录行（缩进已在 strip 中去掉）
+    return [
+        (num, name, " ".join(excerpt)[:_CITE_EXCERPT_CHARS])
+        for num, name, excerpt in entries
+    ]
+
+
 class DocChatTool(ToolMessage):
     """文档问答工具：把 DocChatAgent 封装为子 Agent 工具（多智能体协作）。
 
@@ -119,14 +163,33 @@ class DocChatTool(ToolMessage):
         """
     query: str
 
-    def handle(self) -> str:
-        """把问题转交给文档问答子 Agent（检索 + 带引用的回答）。"""
+    def handle(self, agent: Optional[lr.ChatAgent] = None) -> str:
+        """把问题转交给文档问答子 Agent（检索 + 带引用的回答）。
+
+        langroid 会把调用方主 Agent 注入 agent 参数（base.py 按注解识别）；
+        据此把本次回答的引用来源（langroid metadata.source_content 格式：
+        「[^n] 文档路径」行 + 缩进原文摘录）解析后按主 Agent 暂存，
+        供 Web 层渲染「引用来源」卡片。CLI 等不注入 agent 的入口自动跳过。
+        """
         if _doc_agent is None:
             return "知识库尚未初始化，请告知用户稍后再试。"
         with _doc_agent_lock:  # Web 多会话共享同一子 Agent，调用串行化
             response = _doc_agent.llm_response(self.query)
         if response is None or not response.content:
             return "文档中没有找到相关信息，请如实告知用户。"
+        if agent is not None:
+            # langroid 0.67.7 的 DocChatAgent.llm_response 返回包装只复制了
+            # metadata.source（「[^n] 路径」标题行），完整的 source_content
+            # （标题行 + 缩进原文摘录）保存在子 Agent 的 .response 里
+            # （answer_from_docs 里赋值，见 doc_chat_agent.py）。这里从
+            # .response 取完整引用，解析成 [(引用号, 文档名, 摘录)] 按主
+            # Agent 暂存，供 Web 层渲染「引用来源」卡片，不泄漏本地绝对路径。
+            saved = _doc_agent.response
+            src = getattr(getattr(saved, "metadata", None), "source_content", None) or ""
+            if not src:
+                # 兜底：部分路径（如会话恢复后）没有完整摘录，用标题行
+                src = getattr(response.metadata, "source", None) or ""
+            _last_sources[id(agent)] = _parse_citations(src)
         return response.content
 
     @classmethod

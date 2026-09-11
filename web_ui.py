@@ -16,21 +16,31 @@ DocChatAgent 子 Agent。区别：外层从 CLI 换成 Web，并做四处适配�
    清空 message_history（只留系统消息），改为显式维护每会话最近 N 轮问答
    窗口（MAX_MEMORY_TURNS + 历史回答截断）：token 有界、窗口可调、
    行为可审计（API 抓包实测：默认历史随轮数线性膨胀，改造后每轮恒定）。
+5. 会话功能（DeepSeek 式侧栏）：SQLite 数据层落盘（历史会话列表 +
+   断线恢复）+ 可开关口令登录 + 会话标题自动命名 + 快捷问题按钮 +
+   引用来源卡片 + 模型切换下拉框 + 对话导出 Markdown。
 
 用法: .\\web.ps1  （或 .venv\\Scripts\\python.exe -m chainlit run web_ui.py -w）
-      浏览器打开 http://localhost:8000
+      浏览器打开 http://localhost:8001
 """
 
 import asyncio
 import hashlib
 import os
+import secrets
+import tempfile
 import threading
 import traceback
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import chainlit as cl
 from chainlit import run_sync
+from chainlit.data.sql_alchemy import SQLAlchemyDataLayer
+from chainlit.input_widget import Select
+from chainlit.types import ThreadDict
+from chainlit.user import User
 from dotenv import load_dotenv
 
 import langroid as lr
@@ -39,7 +49,13 @@ from langroid.agent.callbacks.chainlit import get_text_files
 from langroid.agent.special.doc_chat_agent import DocChatAgent
 
 from doc_qa import DEFAULT_EMBED_MODEL, build_doc_agent, ingest_if_needed
-from tools import DeepSeekChatAgent, DocChatTool, RankingTool, set_doc_agent
+from tools import (
+    DeepSeekChatAgent,
+    DocChatTool,
+    RankingTool,
+    get_last_doc_sources,
+    set_doc_agent,
+)
 
 load_dotenv(dotenv_path=Path(__file__).parent / ".env")
 
@@ -54,6 +70,159 @@ MAX_TOOL_ROUNDS = 8  # 手动 ReAct 循环的保险上限，防止工具调度�
 MAX_MEMORY_TURNS = 6
 # 历史回答截断长度（字符）：控制上下文 token 成本，保留关键结论即可
 MAX_MEMORY_ANSWER_CHARS = 500
+# 会话持久化：SQLite 数据层（历史会话列表 + 断线恢复的基础）。
+# DB 放 .chainlit/（已被 .gitignore 忽略），重启不清空历史。
+SESSIONS_DB = Path(__file__).parent / ".chainlit" / "sessions.db"
+# 可开关的访问密码：.env 设置 CHAINLIT_WEB_PASSWORD 即启用登录页与
+# 「Past Chats」历史会话列表（Chainlit 要求 dataPersistence && requireLogin
+# 两者同时成立才渲染历史列表）。不设置则无登录（回归测试/截图管道用）。
+WEB_PASSWORD = os.getenv("CHAINLIT_WEB_PASSWORD")
+# 登录 JWT 签名密钥（chainlit auth/jwt.py 读取）。只在启用登录时需要；
+# 未配置时随机生成并提示（重启后需重新登录，本地使用可接受）。
+_AUTH_SECRET = os.getenv("CHAINLIT_AUTH_SECRET")
+if WEB_PASSWORD and not _AUTH_SECRET:
+    os.environ["CHAINLIT_AUTH_SECRET"] = secrets.token_hex(32)
+    print("[web_ui] 未设置 CHAINLIT_AUTH_SECRET，已随机生成（重启后需重新登录）。")
+# 模型切换下拉框的候选（主 Agent 每会话独立；文档子 Agent 保持进程级单例）
+MODELS = [
+    ("DeepSeek-V3（推荐，默认）", "deepseek/deepseek-chat"),
+    ("DeepSeek-R1（推理更强，工具调用稳定性略低）", "deepseek/deepseek-reasoner"),
+]
+DEFAULT_MODEL_KEY = "model"
+
+
+# Chainlit 2.12 的 SQLAlchemyDataLayer 不负责建表（官方要求用户自建，
+# 见官方 backend/tests/data/test_sql_alchemy.py）。schema 与官方测试同款；
+# SQLite 对 UUID/JSONB/TEXT[] 类型名宽容（官方测试即用 sqlite 跑此 DDL），
+# 且数据层对 metadata 等 JSON 字段自行 json.dumps 后按 TEXT 存取。
+_SESSIONS_SCHEMA = [
+    '''CREATE TABLE IF NOT EXISTS users (
+        "id" UUID PRIMARY KEY,
+        "identifier" TEXT NOT NULL UNIQUE,
+        "metadata" JSONB NOT NULL,
+        "createdAt" TEXT
+    )''',
+    '''CREATE TABLE IF NOT EXISTS threads (
+        "id" UUID PRIMARY KEY,
+        "createdAt" TEXT,
+        "name" TEXT,
+        "userId" UUID,
+        "userIdentifier" TEXT,
+        "tags" TEXT[],
+        "metadata" JSONB NOT NULL DEFAULT '{}',
+        FOREIGN KEY ("userId") REFERENCES users("id") ON DELETE CASCADE
+    )''',
+    # 注意：官方 main 分支的测试 schema 缺 2.12.0 的 defaultOpen/autoCollapse
+    # 等列（Step.to_dict 实际输出），且 disableFeedback 加了 NOT NULL 而
+    # 2.12.0 的 create_step 动态拼列不带它——两处都是实测踩坑修正。
+    '''CREATE TABLE IF NOT EXISTS steps (
+        "id" UUID PRIMARY KEY,
+        "name" TEXT NOT NULL,
+        "type" TEXT NOT NULL,
+        "threadId" UUID NOT NULL,
+        "parentId" UUID,
+        "disableFeedback" BOOLEAN,
+        "streaming" BOOLEAN,
+        "waitForAnswer" BOOLEAN,
+        "isError" BOOLEAN,
+        "metadata" JSONB,
+        "tags" TEXT[],
+        "input" TEXT,
+        "output" TEXT,
+        "createdAt" TEXT,
+        "start" TEXT,
+        "end" TEXT,
+        "generation" JSONB,
+        "showInput" TEXT,
+        "language" TEXT,
+        "indent" INT,
+        "defaultOpen" BOOLEAN,
+        "autoCollapse" BOOLEAN,
+        "command" TEXT,
+        "modes" JSONB,
+        "icon" TEXT,
+        "feedback" JSONB
+    )''',
+    '''CREATE TABLE IF NOT EXISTS elements (
+        "id" UUID PRIMARY KEY,
+        "threadId" UUID,
+        "type" TEXT,
+        "url" TEXT,
+        "chainlitKey" TEXT,
+        "name" TEXT NOT NULL,
+        "display" TEXT,
+        "objectKey" TEXT,
+        "size" TEXT,
+        "page" INT,
+        "language" TEXT,
+        "forId" UUID,
+        "mime" TEXT,
+        "props" TEXT
+    )''',
+    '''CREATE TABLE IF NOT EXISTS feedbacks (
+        "id" UUID PRIMARY KEY,
+        "forId" UUID NOT NULL,
+        "threadId" UUID NOT NULL,
+        "value" INT NOT NULL,
+        "comment" TEXT
+    )''',
+]
+
+
+def _init_sessions_db() -> None:
+    """幂等建表：同步 sqlite3 建 schema（数据层首次使用前调用）。"""
+    import sqlite3
+
+    SESSIONS_DB.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(SESSIONS_DB) as conn:
+        for ddl in _SESSIONS_SCHEMA:
+            conn.execute(ddl)
+
+
+class TimestampedDataLayer(SQLAlchemyDataLayer):
+    """SQLAlchemyDataLayer 子类：给缺失 createdAt 的 step 补当前时间。
+
+    坑（chainlit 2.12.0 实测）：流式回答的 step 由 stream_start 首次落库，
+    create_step 会把 None 字段过滤掉 → createdAt 列为 NULL。回放线程时
+    get_thread 的步骤查询 ORDER BY createdAt ASC，SQLite 把 NULL 排最前，
+    流式回答（子消息）被排在它的父 run 之前回放，前端找不到父消息直接
+    丢弃——表现就是「刷新/恢复会话后，流式生成的回答整条消失」。
+    修复：create_step 入口补时间戳（最终 update_step 时 createdAt 仍为
+    None 也会被过滤，不会覆盖这个初始值）。
+    """
+
+    async def create_step(self, step_dict):
+        if not step_dict.get("createdAt"):
+            step_dict = {
+                **step_dict,
+                "createdAt": datetime.now(timezone.utc).isoformat(),
+            }
+        return await super().create_step(step_dict)
+
+
+@cl.data_layer
+def get_data_layer():
+    """会话持久化数据层：把会话消息落到 .chainlit/sessions.db（SQLite）。
+
+    没有数据层时 Chainlit 2.x 不落盘：刷新后历史消失、侧栏也没有
+    「Past Chats」列表（前端要求 dataPersistence && requireLogin 同时成立）。
+    """
+    _init_sessions_db()
+    return TimestampedDataLayer(conninfo=f"sqlite+aiosqlite:///{SESSIONS_DB}")
+
+
+if WEB_PASSWORD:  # 密码开关：未设置 CHAINLIT_WEB_PASSWORD 则不启用登录
+    @cl.password_auth_callback
+    async def password_auth_callback(
+        username: str, password: str
+    ) -> Optional[User]:
+        """简单口令登录：密码匹配即放行（本机单用户使用场景）。"""
+        if password == WEB_PASSWORD:
+            return User(
+                identifier=username.strip() or "本地用户",
+                metadata={"role": "user"},
+            )
+        return None
 
 SYSTEM_MESSAGE = (  # 与 chat.py 完全一致
     "你是一个留学申请助手。回答规则：\n"
@@ -82,13 +251,19 @@ def _looks_like_dsml(content: str) -> bool:
 
 
 class QuietAgentCallbacks(lr.ChainlitAgentCallbacks):
-    """隐藏工具调用与工具结果的 JSON Step，界面只保留最终回答。
+    """隐藏工具调用/工具结果/模型思考过程的 Step，界面只保留最终回答。
 
     官方回调把 Agent 的「思考过程」可视化：LLM 输出的工具调用参数
     （如 {"request": "ranking_lookup", ...}）渲染成一个 Step，工具返回的
     结果 JSON 再渲染成一个 Step。调试很有用，但日常使用显得杂乱。
     本子类把这两类 Step 都去掉：工具结果会由主 Agent 转述进最终回答，
     不影响内容完整性。
+
+    另：DeepSeek-R1（deepseek-reasoner）的 reasoning_content 会被
+    langroid 传给回调的 reasoning 参数，官方回调把它渲染成一条
+    「💭 Reasoning」消息（实测用户会看到 "The tool returned. Now
+    organize answer." 这类思考碎片）。这里直接丢弃，界面只保留
+    最终回答，与 DeepSeek 官方界面折叠思考过程的做法一致。
     """
 
     def start_llm_stream(self):
@@ -110,7 +285,7 @@ class QuietAgentCallbacks(lr.ChainlitAgentCallbacks):
             content=content,
             tools_content=tools_content,
             is_tool=is_tool,
-            reasoning=reasoning,
+            reasoning="",  # R1 思考过程不渲染（见类 docstring）
         )
 
     def show_llm_response(
@@ -131,7 +306,7 @@ class QuietAgentCallbacks(lr.ChainlitAgentCallbacks):
             is_tool=is_tool,
             cached=cached,
             language=language,
-            reasoning=reasoning,
+            reasoning="",  # R1 思考过程不渲染（见类 docstring）
         )
 
     def show_agent_response(self, content="", language="text", is_tool=False):
@@ -162,21 +337,63 @@ def _ensure_doc_agent() -> DocChatAgent:
     return _doc_agent
 
 
-def build_main_agent() -> lr.ChatAgent:
+def build_main_agent(model: str = MODEL) -> lr.ChatAgent:
     """主 Agent：每会话一个（各自独立的消息历史），挂载两个工具。
 
     用 DeepSeekChatAgent 子类：兼容 DeepSeek 偶发输出的原生 DSML 工具
     调用格式（langroid 0.67.7 不识别，不处理则用户随机看到 XML 原文）。
+    model 支持会话级切换（设置面板下拉框），默认 WEB_MODEL。
     """
     agent = DeepSeekChatAgent(
         lr.ChatAgentConfig(
-            llm=lm.OpenAIGPTConfig(chat_model=MODEL),
+            llm=lm.OpenAIGPTConfig(chat_model=model),
             system_message=SYSTEM_MESSAGE,
         )
     )
     agent.enable_message(RankingTool)
     agent.enable_message(DocChatTool)
     return agent
+
+
+def _session_model() -> str:
+    """当前会话选中的模型（设置面板可改，未改时用默认）。"""
+    return cl.user_session.get(DEFAULT_MODEL_KEY) or MODEL
+
+
+def _normalize_memory(history) -> List[tuple]:
+    """会话恢复后记忆条目是 JSON 反序列化的 list（原为 tuple），归一化回来。
+
+    任何坏条目直接丢弃，不因一条脏数据阻断整段记忆。
+    """
+    if not history:
+        return []
+    out = []
+    for pair in history:
+        if isinstance(pair, (list, tuple)) and len(pair) == 2:
+            out.append((str(pair[0]), str(pair[1])))
+    return out
+
+
+async def _send_citations(agent: lr.ChatAgent) -> None:
+    """把本轮 doc_qa 的引用来源渲染成「📚 引用来源」消息。
+
+    来源由 DocChatTool.handle 按主 Agent 实例暂存（tools.py），这里取后
+    即清。曾用 cl.Text 元素做点击展开卡片：本环境（sqlite 数据层、无云
+    存储）下元素走 element/send_step 通道会被静默丢弃（服务端无异常、
+    客户端收不到任何事件），故降级为普通消息纯文本——与回答走同一条
+    已验证可靠的消息通道；只显示文件名，不显示本地绝对路径。
+    """
+    sources = get_last_doc_sources(agent)
+    if not sources:
+        return
+    lines = ["📚 引用来源：", ""]
+    for num, name, excerpt in sources:
+        lines.append(f"**[^{num}] {name}**")
+        if excerpt:
+            lines.append(f"> {excerpt}")
+        lines.append("")
+    msg = cl.Message(content="\n".join(lines).rstrip())
+    await msg.send()
 
 
 def _compose_with_memory(
@@ -283,62 +500,199 @@ async def on_chat_start():
     cl.user_session.set("doc_agent", doc_agent)
     cl.user_session.set("busy", False)
     cl.user_session.set("memory", [])  # 跨轮对话记忆：[(用户问题, 最终回答), ...]
+    cl.user_session.set(DEFAULT_MODEL_KEY, MODEL)
+
+    # 设置面板：模型切换下拉框（齿轮图标打开；更改后 on_settings_update
+    # 重建当前会话主 Agent，历史由受控记忆窗口继续保留）
+    await cl.ChatSettings(
+        [
+            Select(
+                id=DEFAULT_MODEL_KEY,
+                label="问答模型",
+                values=[v for _, v in MODELS],
+                initial_value=MODEL,
+            )
+        ]
+    ).send()
 
     welcome = (
-        "知识库已就绪。试试：\n"
-        "- 「UCL 的 QS 排名是多少？」\n"
-        "- 「LSE 的雅思要求是多少？」\n"
-        "- 「NYU 的 QS 排名和申请截止日期分别是什么？」\n\n"
-        "也可以直接在对话框上传 PDF/TXT/DOCX 文档，入库后即可提问。"
+        "知识库已就绪。点击下方快捷按钮试问，"
+        "也可以直接输入问题，或上传 PDF/TXT/DOCX 文档入库后提问。"
     )
     if ingest_error:  # 初始化失败不阻断会话，排名类问题仍可用
         welcome = (
             f"知识库初始化遇到问题（{ingest_error}），文档问答暂不可用。\n\n" + welcome
         )
-    await cl.Message(content=welcome).send()
+    await cl.Message(
+        content=welcome,
+        actions=[
+            cl.Action(
+                name="quick_question",
+                payload={"question": "剑桥大学的 QS 排名是多少？"},
+                label="🎓 剑桥 QS 排名",
+            ),
+            cl.Action(
+                name="quick_question",
+                payload={"question": "LSE 的雅思要求是多少？"},
+                label="📋 LSE 雅思要求",
+            ),
+            cl.Action(
+                name="quick_question",
+                payload={"question": "NYU 的 QS 排名和申请截止日期分别是什么？"},
+                label="🗽 NYU 排名+截止日期",
+            ),
+            cl.Action(
+                name="export_chat",
+                payload={},
+                label="📥 导出对话",
+            ),
+        ],
+    ).send()
+
+
+@cl.on_chat_resume
+async def on_chat_resume(_thread: ThreadDict):
+    """历史会话恢复：Chainlit 在 resume 分支只触发本回调（不触发
+    on_chat_start），所以这里重建主 Agent 与回调。对话记忆 memory 由框架
+    自动持久化到线程 metadata 并在恢复前写回 user_session（断线→重连
+    即「完整恢复」），无需手动处理；历史消息由框架自动渲染。
+    """
+    agent = build_main_agent(_session_model())
+    if SHOW_TOOL_STEPS:
+        lr.ChainlitAgentCallbacks(agent)
+    else:
+        QuietAgentCallbacks(agent)
+    cl.user_session.set("agent", agent)
+    cl.user_session.set("busy", False)
+    cl.user_session.set("memory", _normalize_memory(cl.user_session.get("memory")))
+    try:
+        doc_agent = await cl.make_async(_ensure_doc_agent)()
+    except Exception:
+        doc_agent = _doc_agent  # 建库早已完成；异常时用现有单例兜底
+    cl.user_session.set("doc_agent", doc_agent)
+
+
+@cl.on_settings_update
+async def on_settings_update(settings):
+    """模型切换：重建当前会话的主 Agent（文档子 Agent 是进程级单例，
+    保持默认模型不动）。记忆窗口在 user_session，重建 Agent 不丢。
+    """
+    model = settings.get(DEFAULT_MODEL_KEY) or MODEL
+    cl.user_session.set(DEFAULT_MODEL_KEY, model)
+    agent = build_main_agent(model)
+    if SHOW_TOOL_STEPS:
+        lr.ChainlitAgentCallbacks(agent)
+    else:
+        QuietAgentCallbacks(agent)
+    cl.user_session.set("agent", agent)
+    await cl.Message(content=f"✅ 已切换模型：{model.split('/')[-1]}").send()
 
 
 @cl.on_message
 async def on_message(message: cl.Message):
-    # 串行化：agent.message_history 非线程安全。check-then-set 在首个 await
-    # 之前完成，chainlit 在同一事件循环线程上派发，天然原子。
+    doc_agent = cl.user_session.get("doc_agent")
+    # 上传的文档先入库（内容哈希去重），再处理提问
+    files = await get_text_files(message)  # 官方辅助函数（异步），{文件名: 路径}
+    if files:
+        if doc_agent is None:
+            await cl.Message(content="知识库未初始化，暂时无法接收上传文档。").send()
+        else:
+            for name, path in files.items():
+                key = _upload_key(name, path)
+                done = await cl.make_async(ingest_if_needed)(doc_agent, path, key)
+                await cl.Message(
+                    content=f"文档《{name}》{'已入库' if done else '此前已入库，跳过'}。"
+                ).send()
+        if not message.content.strip():
+            await cl.Message(content="文档已就绪，请直接提问。").send()
+            return
+    await _handle_question(message.content)
+
+
+async def _handle_question(question: str):
+    """统一问答入口（输入框消息与快捷按钮共用）。
+
+    串行化：agent.message_history 非线程安全，check-then-set 在首个 await
+    之前完成（chainlit 同一事件循环线程派发，天然原子）。
+    """
     if cl.user_session.get("busy"):
         await cl.Message(content="上一条消息还在处理中，请稍候……").send()
         return
-    cl.user_session.set("busy", True)
-
     agent = cl.user_session.get("agent")
-    doc_agent = cl.user_session.get("doc_agent")
+    if agent is None:
+        # 会话刚建立、on_chat_start 还在初始化（启动入库 + agent 构建）时
+        # 用户就发了消息：回友好提示，而不是跑出「处理出错」
+        await cl.Message(content="知识库还在初始化，请稍候几秒再问……").send()
+        return
+    cl.user_session.set("busy", True)
     try:
-        # 上传的文档先入库（内容哈希去重），再处理提问
-        files = await get_text_files(message)  # 官方辅助函数（异步），{文件名: 路径}
-        if files:
-            if doc_agent is None:
-                await cl.Message(content="知识库未初始化，暂时无法接收上传文档。").send()
-            else:
-                for name, path in files.items():
-                    key = _upload_key(name, path)
-                    done = await cl.make_async(ingest_if_needed)(doc_agent, path, key)
-                    await cl.Message(
-                        content=f"文档《{name}》{'已入库' if done else '此前已入库，跳过'}。"
-                    ).send()
-            if not message.content.strip():
-                await cl.Message(content="文档已就绪，请直接提问。").send()
-                return
-
         # 手动 ReAct 循环整体入线程池；LLM 流式回答与工具 Step 由回调渲染
         # 跨轮记忆：把本会话最近 N 轮问答显式拼进上下文再交给 Agent
         # （框架隐式历史已被 run_react 每轮清空，见 _compose_with_memory）
-        history = cl.user_session.get("memory") or []
-        prompt = _compose_with_memory(history, message.content)
+        history = _normalize_memory(cl.user_session.get("memory"))
+        prompt = _compose_with_memory(history, question)
         answer = await cl.make_async(run_react)(agent, prompt)
         if answer is None:
             await cl.Message(content="（未获得有效回答）").send()
         else:
-            history.append((message.content, answer))
+            history.append((question, answer))
             cl.user_session.set("memory", history[-MAX_MEMORY_TURNS:])
+            # 会话标题：取首个用户问题前 20 字（侧栏「Past Chats」列表显示）。
+            # user_session["name"] 在断线时随线程 metadata 持久化，
+            # 会话标题由此跨重启/跨设备保留。
+            if not cl.user_session.get("name"):
+                cl.user_session.set("name", question.strip()[:20])
+        await _send_citations(agent)
     except Exception as e:  # 回调已渲染错误 Step 的场景会轻微重复，可接受
         traceback.print_exc()
         await cl.Message(content=f"处理出错：{e}").send()
     finally:
         cl.user_session.set("busy", False)
+
+
+@cl.action_callback("quick_question")
+async def on_quick_question(action: cl.Action):
+    """快捷问题按钮：以用户身份补发一条消息（会话历史保持完整），
+    再走与输入框相同的统一问答流程。
+    """
+    question = action.payload.get("question", "")
+    await cl.Message(content=question, author="user").send()
+    await _handle_question(question)
+
+
+@cl.action_callback("export_chat")
+async def on_export_chat(_action: cl.Action):
+    """把当前会话导出为 Markdown 文件。
+
+    cl.chat_context.get() 返回 Message 对象列表（2.12.0 API，不是
+    ThreadDict）；恢复的历史会话由框架在 resume 时重新填回
+    （socket.py 把历史 step 转成 Message 加回 chat_context），
+    因此导出对历史会话同样完整。
+    """
+    messages = cl.chat_context.get()
+    lines = ["# 留学助手对话记录", "", f"- 导出时间：{datetime.now():%Y-%m-%d %H:%M}", ""]
+    for message in messages:
+        if message.type == "user_message":
+            lines.append(f"**问：** {message.content}")
+            lines.append("")
+        elif message.type == "assistant_message":
+            output = message.content or ""
+            # 纯界面元素不入导出：欢迎横幅 / 引用卡片（正文摘录在
+            # elements 里，此处只有标题，导出会缺内容）/ 模型切换提示
+            if output.startswith(("知识库已就绪", "📚 引用来源", "✅ 已切换模型")):
+                continue
+            lines.append(f"**答：** {output}")
+            lines.append("")
+    md = "\n".join(lines)
+    name = f"chat-export-{datetime.now():%Y%m%d-%H%M%S}.md"
+    # 本地数据层没有云存储客户端（元素不入库），cl.File(path=...) 前端拿
+    # 不到下载地址。改走 session.persist_file：文件写入会话临时目录并登记
+    # 到会话 files 表，/project/file/{id} 路由直接以 FileResponse 下发。
+    file_ref = await cl.context.session.persist_file(
+        name=name, mime="text/markdown", content=md
+    )
+    url = f"/project/file/{file_ref['id']}?session_id={cl.context.session.id}"
+    await cl.Message(
+        content="📥 对话已导出为 Markdown（点击下载）：",
+        elements=[cl.File(name=name, url=url, display="inline")],
+    ).send()

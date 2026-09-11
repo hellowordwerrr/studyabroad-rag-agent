@@ -1,4 +1,4 @@
-# 留学申请文档问答知识库（RAG 多智能体）
+# 留学智库 —— 留学申请文档问答知识库（RAG 多智能体）
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue)](https://www.python.org/)
 [![Langroid](https://img.shields.io/badge/Langroid-0.67.7-green)](https://github.com/langroid/langroid)
@@ -12,6 +12,7 @@
 - 🤖 **多智能体架构** —— 主 Agent 调度两个工具：`ranking_lookup`（QS 排名/城市查询）+ `doc_qa`（文档问答，回答带来源引用）
 - 🎯 **自建评测体系** —— 46 题三层指标（检索命中 / 工具路由 / 答案正确）全部满分（19/19 + 46/46 + 46/46），含 5 道「防编造」题
 - 🧠 **受控对话记忆** —— 显式记忆窗口 + 指代消解，多轮追问「那这所学校呢？」正确解析；查不到的宁可拒答也不编造
+- 💬 **Web 会话中心** —— 侧栏历史会话/新建会话，断线或刷新后完整恢复（消息 + 对话记忆）；密码登录可开关；快捷问题按钮、模型切换、一键导出 Markdown、回答附「📚 引用来源」卡片
 - 📡 **数据管道** —— QS 排名一条命令自动更新（自动校验揪出人工漏掉的错）；官网爬虫定向采集申请要求，来源可溯
 - 🛡️ **模型输出容错** —— DeepSeek 偶发原生 DSML 工具调用（约 1/5 轮），双路解析修复，工具不再偶发失效
 
@@ -36,20 +37,11 @@ Python 3.12 · Langroid 0.67.7（多智能体 + RAG 框架）· Chainlit（Web �
 
 ## 🖥 界面与演示
 
-![Web 界面](docs/screenshot.png)
+![登录页：品牌化卡片 + 世界名校校徽墙](docs/screenshot_login.png)
 
-<details>
-<summary>试试这 3 个问题（点击展开）</summary>
+![首屏：欢迎横幅 + 快捷问题按钮 + 历史会话侧栏](docs/screenshot.png)
 
-- 「剑桥大学的 QS 排名是多少？」→ 触发排名工具
-- 「LSE 的雅思要求是多少？」→ 触发文档问答，回答带 [^1] 引用
-- 「NYU 的 QS 排名和申请截止日期分别是什么？」→ 两个工具各调一次再整合回答
-
-```
-问：LSE 的雅思要求是多少？
-答：LSE 对雅思的总体要求是总分 7.0，各单项不低于 6.5…… [^1]
-```
-</details>
+![问答画面：带 [^n] 来源引用的回答 + 引用来源卡片](docs/screenshot_qa.png)
 
 ## 🚀 快速开始
 
@@ -65,11 +57,15 @@ Python 3.12 · Langroid 0.67.7（多智能体 + RAG 框架）· Chainlit（Web �
    DEEPSEEK_API_KEY=sk-xxxxx
    ```
 
-3. 运行（`run.ps1` 自动设置 UTF-8；`-m deepseek/deepseek-reasoner` 可换 R1 模型）：
+3. （可选）为 Web 界面加登录口令：在 `.env` 设置 `CHAINLIT_WEB_PASSWORD=你的密码`
+   （不设置则无登录页；登录时用户名可任意填写，`CHAINLIT_AUTH_SECRET` 建议按
+   `.env.example` 说明生成，否则每次重启后需重新登录）
+
+4. 运行（`run.ps1` 自动设置 UTF-8；`-m deepseek/deepseek-reasoner` 可换 R1 模型）：
 
    ```powershell
    .\run.ps1 docs   # CLI 问答：用示例文档测试，输入 x 退出
-   .\web.ps1        # Web 界面：浏览器打开 http://localhost:8000
+   .\web.ps1        # Web 界面：浏览器打开 http://localhost:8001
    ```
 
 ## 📄 技术基础与致谢
