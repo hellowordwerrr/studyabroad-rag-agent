@@ -18,7 +18,7 @@ DocChatAgent 子 Agent。区别：外层从 CLI 换成 Web，并做四处适配�
    行为可审计（API 抓包实测：默认历史随轮数线性膨胀，改造后每轮恒定）。
 5. 会话功能（DeepSeek 式侧栏）：SQLite 数据层落盘（历史会话列表 +
    断线恢复）+ 可开关口令登录 + 会话标题自动命名 + 快捷问题按钮 +
-   引用来源卡片 + 模型切换下拉框 + 对话导出 Markdown。
+   引用来源卡片 + 对话头部模型切换下拉（Chat Profile）+ 对话导出 Markdown。
 
 用法: .\\web.ps1  （或 .venv\\Scripts\\python.exe -m chainlit run web_ui.py -w）
       浏览器打开 http://localhost:8001
@@ -26,7 +26,9 @@ DocChatAgent 子 Agent。区别：外层从 CLI 换成 Web，并做四处适配�
 
 import asyncio
 import hashlib
+import math
 import os
+import re
 import secrets
 import tempfile
 import threading
@@ -38,7 +40,6 @@ from typing import List, Optional
 import chainlit as cl
 from chainlit import run_sync
 from chainlit.data.sql_alchemy import SQLAlchemyDataLayer
-from chainlit.input_widget import Select
 from chainlit.types import ThreadDict
 from chainlit.user import User
 from dotenv import load_dotenv
@@ -83,12 +84,45 @@ _AUTH_SECRET = os.getenv("CHAINLIT_AUTH_SECRET")
 if WEB_PASSWORD and not _AUTH_SECRET:
     os.environ["CHAINLIT_AUTH_SECRET"] = secrets.token_hex(32)
     print("[web_ui] 未设置 CHAINLIT_AUTH_SECRET，已随机生成（重启后需重新登录）。")
-# 模型切换下拉框的候选（主 Agent 每会话独立；文档子 Agent 保持进程级单例）
-MODELS = [
-    ("DeepSeek-V3（推荐，默认）", "deepseek/deepseek-chat"),
-    ("DeepSeek-R1（推理更强，工具调用稳定性略低）", "deepseek/deepseek-reasoner"),
+# 对话头部可见的模型切换器（Chat Profile 下拉）：替换原来藏在设置齿轮里的
+# 下拉框（齿轮入口太隐蔽）。Chainlit 会在聊天窗口顶部渲染一个显示当前模型
+# 名的下拉框（WorkBuddy 式交互），点开可见全部候选。name 是内部标识
+# （on_chat_start 用它选模型），display_name 是下拉框里显示的名字。
+# icon 必须是图片 URL：前端把 icon 当 <img src> 渲染（emoji 字符串会裂图），
+# 含 /public 前缀的路径由前端 buildEndpoint 解析成本机静态资源地址。
+# 主 Agent 每会话独立；文档子 Agent 保持进程级单例（默认模型，不随切换变化）。
+MODEL_PROFILES = [
+    {
+        "name": "deepseek-chat",
+        "display_name": "DeepSeek-V3",
+        "description": "通用问答模型：响应快、工具调用稳，日常问答首选（默认）",
+        "icon": "/public/model-v3.svg",
+    },
+    {
+        "name": "deepseek-reasoner",
+        "display_name": "DeepSeek-R1",
+        "description": "深度推理模型：复杂问题想得更深，工具调用稳定性略低",
+        "icon": "/public/model-r1.svg",
+    },
 ]
+# profile 内部标识 → langroid 模型全名（deepseek/<name>）
+_MODEL_BY_PROFILE = {p["name"]: f"deepseek/{p['name']}" for p in MODEL_PROFILES}
 DEFAULT_MODEL_KEY = "model"
+
+
+@cl.set_chat_profiles
+async def _chat_profiles(_user, _language):
+    """头部下拉框的候选列表（Chainlit 在 /project/settings 拉取后渲染）。"""
+    return [
+        cl.ChatProfile(
+            name=p["name"],
+            display_name=p["display_name"],
+            markdown_description=p["description"],
+            icon=p["icon"],
+            default=(f"deepseek/{p['name']}" == MODEL),
+        )
+        for p in MODEL_PROFILES
+    ]
 
 
 # Chainlit 2.12 的 SQLAlchemyDataLayer 不负责建表（官方要求用户自建，
@@ -342,7 +376,7 @@ def build_main_agent(model: str = MODEL) -> lr.ChatAgent:
 
     用 DeepSeekChatAgent 子类：兼容 DeepSeek 偶发输出的原生 DSML 工具
     调用格式（langroid 0.67.7 不识别，不处理则用户随机看到 XML 原文）。
-    model 支持会话级切换（设置面板下拉框），默认 WEB_MODEL。
+    model 支持会话级切换（对话头部 Chat Profile 下拉框），默认 WEB_MODEL。
     """
     agent = DeepSeekChatAgent(
         lr.ChatAgentConfig(
@@ -356,7 +390,7 @@ def build_main_agent(model: str = MODEL) -> lr.ChatAgent:
 
 
 def _session_model() -> str:
-    """当前会话选中的模型（设置面板可改，未改时用默认）。"""
+    """当前会话选中的模型（对话头部下拉框可改，未改时用默认）。"""
     return cl.user_session.get(DEFAULT_MODEL_KEY) or MODEL
 
 
@@ -374,23 +408,118 @@ def _normalize_memory(history) -> List[tuple]:
     return out
 
 
-async def _send_citations(agent: lr.ChatAgent) -> None:
+# 爬虫写在每篇文档头部的来源元数据行（crawler.py build_document）：入库后
+# 成为检索块的前缀。卡片只负责「核对答案出处」，这两行与答案无关，
+# 展示前剥掉；文档文件与检索内容原样保留，来源可溯不变。
+_META_LINE_RE = re.compile(r"^#\s*(?:来源|抓取时间)[:：]")
+# 中英句界：中文句号/问号/叹号/分号后，或英文句点+空格后跟大写（避免
+# 小数点与 URL 误拆）。re.split 用零宽断言，句末标点留在前一句。
+_SENT_BOUNDARY_RE = re.compile(r"(?<=[。！？!?；;])\s*|(?<=\.)\s+(?=[A-Z])")
+# 行首 Markdown 触发符：标题/引用/列表/代码围栏/强调。摘录是普通文本，
+# 不能被打成标题（问题①：「# 来源:」曾被渲染成超大标题）。
+_MD_TRIGGER_RE = re.compile(
+    r"^(?:#{1,6}\s|>|\s*[-+*]\s|\s*\d+[.)]\s|`{1,3}|\\|[*_])"
+)
+# 选句后进卡片的最大总字符数（1~2 句的展示预算）
+_PICK_MAX_CHARS = 180
+# 第 2 句与第 1 句的相似度分差阈值：分差不超过它视为「几乎同样相关」
+_PICK_SCORE_GAP = 0.03
+
+
+def _strip_metadata(excerpt: str) -> str:
+    """剥掉爬虫头部元数据行（# 来源: / # 抓取时间:），返回正文行。"""
+    kept = [ln for ln in excerpt.splitlines() if not _META_LINE_RE.match(ln.strip())]
+    return "\n".join(kept).strip()
+
+
+def _split_sentences(text: str) -> List[str]:
+    """把摘录拆成候选句：先按行拆（检索块保留换行），长行再按中英句界拆。"""
+    out: List[str] = []
+    for line in text.splitlines():
+        for piece in _SENT_BOUNDARY_RE.split(line.strip()):
+            piece = piece.strip()
+            if len(piece) >= 4:  # 过滤列表项/标点残留等太短的碎片
+                out.append(piece)
+    return out
+
+
+def _md_escape(line: str) -> str:
+    """行首 Markdown 触发符前加反斜杠，让摘录按普通文本渲染。"""
+    return "\\" + line if _MD_TRIGGER_RE.match(line) else line
+
+
+def _cosine(a: List[float], b: List[float]) -> float:
+    """两个向量的余弦相似度（手写点积归一，不引入 numpy）。"""
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(x * x for x in b))
+    return dot / (na * nb) if na and nb else 0.0
+
+
+def _select_supporting(
+    sentences: List[str], answer: str, embed_fn
+) -> List[str]:
+    """本地相似度选句：候选句与最终回答算余弦相似度，取最像的 1~2 句。
+
+    复用知识库已加载的 embedding 模型（doc_agent.vecdb.embedding_fn，
+    与检索同一套 bge 向量）：检索链路里的「LLM 抽取相关句」已随评测
+    定稿关闭（relevance_extractor_config=None），这里只做展示层选句，
+    零 API 成本、零额外延迟、不影响回答与评测。
+    """
+    if len(sentences) == 1:
+        return sentences[:1]
+    vecs = embed_fn(sentences + [answer])
+    scores = [_cosine(v, vecs[-1]) for v in vecs[:-1]]
+    ranked = sorted(range(len(sentences)), key=lambda i: -scores[i])
+    picked = [sentences[ranked[0]]]
+    # 第 2 句几乎同样相关且放得下时一并展示，按原文顺序输出
+    if (
+        len(ranked) > 1
+        and scores[ranked[0]] - scores[ranked[1]] <= _PICK_SCORE_GAP
+        and len(picked[0]) + len(sentences[ranked[1]]) <= _PICK_MAX_CHARS
+    ):
+        picked.append(sentences[ranked[1]])
+    return [p for p in sorted(picked, key=sentences.index)]
+
+
+async def _send_citations(agent: lr.ChatAgent, answer: str = "") -> None:
     """把本轮 doc_qa 的引用来源渲染成「📚 引用来源」消息。
 
     来源由 DocChatTool.handle 按主 Agent 实例暂存（tools.py），这里取后
     即清。曾用 cl.Text 元素做点击展开卡片：本环境（sqlite 数据层、无云
     存储）下元素走 element/send_step 通道会被静默丢弃（服务端无异常、
-    客户端收不到任何事件），故降级为普通消息纯文本——与回答走同一条
-    已验证可靠的消息通道；只显示文件名，不显示本地绝对路径。
+    客户端收不到任何事件），故降级为普通消息——与回答走同一条已验证
+    可靠的消息通道；只显示文件名，不显示本地绝对路径。
+
+    卡片只展示「命中答案的那句话」：剥掉爬虫元数据行 → 拆句 → 与最终
+    回答做本地 embedding 相似度选句（取最像的 1~2 句）→ Markdown 转义
+    防「# 来源:」被渲染成标题。选句依赖不可用时兜底显示清洗后的开头
+    1~2 句；单条来源处理失败只降级该条，不阻断卡片其余部分。
     """
     sources = get_last_doc_sources(agent)
     if not sources:
         return
+    # 文档子 Agent 进程级单例在 user_session（on_chat_start 写入）；
+    # vecdb.embedding_fn 即知识库已加载的 bge embedding（直接复用不重载）
+    doc_agent = cl.user_session.get("doc_agent")
+    embed_fn = getattr(getattr(doc_agent, "vecdb", None), "embedding_fn", None)
     lines = ["📚 引用来源：", ""]
     for num, name, excerpt in sources:
         lines.append(f"**[^{num}] {name}**")
-        if excerpt:
-            lines.append(f"> {excerpt}")
+        try:
+            text = _strip_metadata(excerpt)
+            sentences = _split_sentences(text) if text else []
+            if sentences:
+                if answer and embed_fn is not None:
+                    picked = _select_supporting(sentences, answer, embed_fn)
+                else:  # 兜底：无回答文本或无 embedding 函数时取开头 1~2 句
+                    picked = sentences[:2]
+            else:
+                picked = [text[:120]] if text else []
+            for sentence in picked:
+                lines.append(f"> {_md_escape(sentence)}")
+        except Exception:
+            pass  # 展示层出错绝不抛到问答主流程，这条引用静默降级
         lines.append("")
     msg = cl.Message(content="\n".join(lines).rstrip())
     await msg.send()
@@ -487,7 +616,10 @@ async def on_chat_start():
     except Exception as e:
         ingest_error = str(e)
 
-    agent = build_main_agent()
+    # 头部下拉框选中的 profile name（未选择时为 None），据此选模型建 Agent
+    profile = cl.user_session.get("chat_profile")
+    model = _MODEL_BY_PROFILE.get(profile, MODEL)
+    agent = build_main_agent(model)
     # 注入 Chainlit 回调（流式 LLM Step / 工具 Step / 错误 Step 渲染）。
     # 建库在注入之前完成，不会把 ingest 渲染成 Step；回调只绑主 Agent。
     # 默认用 QuietAgentCallbacks（隐藏工具 JSON Step）；WEB_SHOW_TOOL_STEPS=1
@@ -500,20 +632,7 @@ async def on_chat_start():
     cl.user_session.set("doc_agent", doc_agent)
     cl.user_session.set("busy", False)
     cl.user_session.set("memory", [])  # 跨轮对话记忆：[(用户问题, 最终回答), ...]
-    cl.user_session.set(DEFAULT_MODEL_KEY, MODEL)
-
-    # 设置面板：模型切换下拉框（齿轮图标打开；更改后 on_settings_update
-    # 重建当前会话主 Agent，历史由受控记忆窗口继续保留）
-    await cl.ChatSettings(
-        [
-            Select(
-                id=DEFAULT_MODEL_KEY,
-                label="问答模型",
-                values=[v for _, v in MODELS],
-                initial_value=MODEL,
-            )
-        ]
-    ).send()
+    cl.user_session.set(DEFAULT_MODEL_KEY, model)
 
     welcome = (
         "知识库已就绪。点击下方快捷按钮试问，"
@@ -572,22 +691,6 @@ async def on_chat_resume(_thread: ThreadDict):
     cl.user_session.set("doc_agent", doc_agent)
 
 
-@cl.on_settings_update
-async def on_settings_update(settings):
-    """模型切换：重建当前会话的主 Agent（文档子 Agent 是进程级单例，
-    保持默认模型不动）。记忆窗口在 user_session，重建 Agent 不丢。
-    """
-    model = settings.get(DEFAULT_MODEL_KEY) or MODEL
-    cl.user_session.set(DEFAULT_MODEL_KEY, model)
-    agent = build_main_agent(model)
-    if SHOW_TOOL_STEPS:
-        lr.ChainlitAgentCallbacks(agent)
-    else:
-        QuietAgentCallbacks(agent)
-    cl.user_session.set("agent", agent)
-    await cl.Message(content=f"✅ 已切换模型：{model.split('/')[-1]}").send()
-
-
 @cl.on_message
 async def on_message(message: cl.Message):
     doc_agent = cl.user_session.get("doc_agent")
@@ -642,7 +745,7 @@ async def _handle_question(question: str):
             # 会话标题由此跨重启/跨设备保留。
             if not cl.user_session.get("name"):
                 cl.user_session.set("name", question.strip()[:20])
-        await _send_citations(agent)
+        await _send_citations(agent, answer or "")
     except Exception as e:  # 回调已渲染错误 Step 的场景会轻微重复，可接受
         traceback.print_exc()
         await cl.Message(content=f"处理出错：{e}").send()
@@ -678,8 +781,8 @@ async def on_export_chat(_action: cl.Action):
         elif message.type == "assistant_message":
             output = message.content or ""
             # 纯界面元素不入导出：欢迎横幅 / 引用卡片（正文摘录在
-            # elements 里，此处只有标题，导出会缺内容）/ 模型切换提示
-            if output.startswith(("知识库已就绪", "📚 引用来源", "✅ 已切换模型")):
+            # elements 里，此处只有标题，导出会缺内容）
+            if output.startswith(("知识库已就绪", "📚 引用来源")):
                 continue
             lines.append(f"**答：** {output}")
             lines.append("")

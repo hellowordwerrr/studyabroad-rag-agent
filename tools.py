@@ -115,7 +115,11 @@ class RankingTool(ToolMessage):
 
 # 引用来源行格式：^[n] 后跟文档路径（本地绝对路径），只保留文件名展示
 _CITE_RE = re.compile(r"^\[\^(\d+)\]\s+(.+)$")
-_CITE_EXCERPT_CHARS = 200  # 引用卡片里每篇文档的原文摘录截断长度
+# 引用卡片里每篇文档的原文摘录截断长度（安全上限）。上限要能覆盖一个完整
+# 检索块（英文块约 200 词 ≈ 1200+ 字符）：卡片在展示层按「与回答最相似的
+# 句子」选句（web_ui._send_citations），这里截得太短会把支持句截没，
+# 选句无从谈起。2000 字符覆盖 ~300 词，块内句子不会因截断缺席。
+_CITE_EXCERPT_CHARS = 2000
 
 
 def _parse_citations(source_content: str) -> List[tuple]:
@@ -126,8 +130,8 @@ def _parse_citations(source_content: str) -> List[tuple]:
         [^4] D:\\study-abroad-qa\\docs\\crawled-lse-....txt
             Graduate programmes at LSE are demanding ...
 
-    路径只取文件名（绝对路径是本地信息，不进界面）；摘录截断到
-    _CITE_EXCERPT_CHARS，控制卡片体积。
+    路径只取文件名（绝对路径是本地信息，不进界面）；摘录行保留换行
+    （展示层按行/句拆开选句），截断到 _CITE_EXCERPT_CHARS 作为安全上限。
     """
     entries: List[List] = []
     current: Optional[List] = None
@@ -140,7 +144,7 @@ def _parse_citations(source_content: str) -> List[tuple]:
         elif current is not None and line.strip():
             current[2].append(line.strip())  # 摘录行（缩进已在 strip 中去掉）
     return [
-        (num, name, " ".join(excerpt)[:_CITE_EXCERPT_CHARS])
+        (num, name, "\n".join(excerpt)[:_CITE_EXCERPT_CHARS])
         for num, name, excerpt in entries
     ]
 
